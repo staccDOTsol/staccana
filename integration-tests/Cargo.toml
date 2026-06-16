@@ -20,7 +20,7 @@ staccana-genesis-emit = { path = "../tools/genesis-emit" }
 staccana-bridge-cli = { path = "../tools/bridge-cli" }
 staccana-federation-attestor = { path = "../tools/federation-attestor" }
 solana-program = { workspace = true }
-solana-sdk = "2"
+solana-sdk = "4"
 serde = { workspace = true }
 anyhow = { workspace = true }
 serde_json = "1"

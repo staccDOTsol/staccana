@@ -16,7 +16,7 @@ anchor-lang = { version = "1", features = ["init-if-needed"] }
 # the specific interface crates directly.
 solana-instructions-sysvar = "3"
 solana-sdk-ids = "3"
-solana-hash = "3"
+solana-hash = "4"
 solana-program = { workspace = true }
 thiserror = { workspace = true }
 

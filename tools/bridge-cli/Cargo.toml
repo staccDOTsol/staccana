@@ -15,8 +15,8 @@ name = "staccana_bridge_cli"
 path = "src/lib.rs"
 
 [dependencies]
-solana-sdk = "2"
-solana-client = "2"
+solana-sdk = "4"
+solana-client = "3"
 solana-program = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 anyhow = { workspace = true }

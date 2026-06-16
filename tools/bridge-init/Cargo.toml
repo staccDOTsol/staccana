@@ -17,8 +17,8 @@ path = "src/lib.rs"
 [dependencies]
 anyhow = { workspace = true }
 clap = { version = "4", features = ["derive"] }
-solana-client = "2"
-solana-sdk = "2"
+solana-client = "3"
+solana-sdk = "4"
 solana-program = { workspace = true }
 sha2 = "0.10"
 borsh = { version = "1", features = ["derive"] }

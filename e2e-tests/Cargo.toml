@@ -22,7 +22,7 @@ staccana-claim-cli = { path = "../tools/claim-cli" }
 staccana-snapshot-fork = { path = "../tools/snapshot-fork" }
 staccana-genesis-emit = { path = "../tools/genesis-emit" }
 solana-program-test = "2"
-solana-sdk = "2"
+solana-sdk = "4"
 solana-program = { workspace = true }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 anyhow = { workspace = true }

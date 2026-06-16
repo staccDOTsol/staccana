@@ -28,9 +28,9 @@ path = "src/lib.rs"
 
 [dependencies]
 solana-program = { workspace = true }
-solana-sdk = "2"
-solana-client = "2"
-solana-transaction-status-client-types = "2"
+solana-sdk = "4"
+solana-client = "3"
+solana-transaction-status-client-types = "3"
 # NOTE: real-time event subscriptions require `solana-pubsub-client = "2"`. Not pulled in
 # at v0 to keep the build surface small; see `observer.rs` for the integration TODO.
 tokio = { version = "1", features = ["full"] }

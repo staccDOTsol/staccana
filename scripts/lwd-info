@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+endpoint="${1:-lwd.zec.pro:443}"
+proto_dir="${LWD_PROTO_DIR:-/Users/stacc/.local/src/lightwalletd/walletrpc}"
+
+args=(-max-time "${LWD_TIMEOUT:-20}")
+if [[ "${LWD_PLAINTEXT:-0}" == "1" ]]; then
+  args+=(-plaintext)
+fi
+args+=(
+  -import-path "$proto_dir"
+  -proto service.proto
+  -d '{}'
+  "$endpoint"
+  cash.z.wallet.sdk.rpc.CompactTxStreamer/GetLightdInfo
+)
+
+grpcurl "${args[@]}"

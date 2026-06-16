@@ -1,0 +1,23 @@
+{
+  "name": "@staccoverflow/zk-proofs-wasm",
+  "type": "module",
+  "description": "wasm-bindgen wrapper around solana-zk-sdk proof generators (PubkeyValidity, ZeroCiphertext, CiphertextCommitmentEquality, BatchedRangeProof{U64,U128}, BatchedGroupedCiphertext3HandlesValidity) for Token-22 ConfidentialTransfer. Pinned to zk-sdk v4.0.0 transcript (matches agave 2.3.x).",
+  "version": "0.4.0",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/staccana/staccana"
+  },
+  "files": [
+    "solana_zk_proofs_wasm_bg.wasm",
+    "solana_zk_proofs_wasm.js",
+    "solana_zk_proofs_wasm_bg.js",
+    "solana_zk_proofs_wasm.d.ts"
+  ],
+  "main": "solana_zk_proofs_wasm.js",
+  "types": "solana_zk_proofs_wasm.d.ts",
+  "sideEffects": [
+    "./solana_zk_proofs_wasm.js",
+    "./snippets/*"
+  ]
+}

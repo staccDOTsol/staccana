@@ -1,0 +1,59 @@
+[Unit]
+Description=Staccana validator (joining / val-2 — discovers val-1 via --entrypoint)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=staccana
+Group=staccana
+LimitNOFILE=2000000
+LimitNPROC=65535
+TimeoutStopSec=180
+Restart=on-failure
+RestartSec=10s
+
+Environment="RUST_LOG=solana=info,solana_metrics=warn"
+Environment="SOLANA_METRICS_CONFIG=host=https://metrics.example,db=staccana,u=writer,p=changeme"
+
+# val-1's gossip endpoint. Default 84.32.220.211:8001 = the val-bootstrap
+# (cunning-raptor) Cherryservers box. Override via env var.
+Environment="STACCANA_VAL1_GOSSIP=84.32.220.211:8001"
+# val-2's PUBLIC IP, advertised in gossip. Required so agave doesn't try to
+# ask the entrypoint for "what's my public IP" (which fails until val-1 fully
+# bootstraps).
+Environment="STACCANA_THIS_PUBLIC_IP=84.32.220.76"
+
+# Joining validator pattern: --entrypoint points at the bootstrap validator,
+# --gossip-host is our own public IP (so we don't need entrypoint roundtrip
+# for IP discovery), --no-port-check skips the inter-host port reachability
+# verification (Cherryservers blocks 8899/8900 between hosts), --no-snapshot-
+# fetch + --no-genesis-fetch are needed because val-1 doesn't have a snapshot
+# at first run (we have the same baked ledger via rsync; no fetch needed).
+ExecStart=/usr/local/bin/agave-validator \
+  --identity /etc/staccana/keys-2/identity.json \
+  --vote-account /etc/staccana/keys-2/vote.json \
+  --authorized-voter /etc/staccana/keys-2/vote.json \
+  --ledger /var/lib/staccana/ledger \
+  --accounts /var/lib/staccana/accounts \
+  --snapshot-interval-slots 200 \
+  --no-incremental-snapshots \
+  --limit-ledger-size 200000000 \
+  --no-poh-speed-test \
+  --no-os-network-limits-test \
+  --no-port-check \
+  --no-snapshot-fetch \
+  --no-genesis-fetch \
+  --no-wait-for-vote-to-start-leader \
+  --gossip-host ${STACCANA_THIS_PUBLIC_IP} \
+  --entrypoint ${STACCANA_VAL1_GOSSIP} \
+  --full-rpc-api \
+  --allow-private-addr \
+  --rpc-port 8899 \
+  --rpc-bind-address 127.0.0.1 \
+  --gossip-port 8001 \
+  --dynamic-port-range 8002-8020 \
+  --log /var/log/staccana/validator-2.log
+
+[Install]
+WantedBy=multi-user.target

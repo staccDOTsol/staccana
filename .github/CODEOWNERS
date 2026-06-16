@@ -1,0 +1,8 @@
+# Default — staccDOTsol owns everything until other contributors land.
+*                              @staccDOTsol
+
+# Specific paths that may want different reviewers in the future:
+# /programs/bridge/             @staccDOTsol @some-bridge-reviewer
+# /programs/secret-pump/        @staccDOTsol
+# /docs/SPEC.md                 @staccDOTsol  # spec changes need owner sign-off
+# /infra/                       @staccDOTsol

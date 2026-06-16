@@ -1,0 +1,15 @@
+[Unit]
+Description=Run staccana-bridge-publisher every 60 seconds
+Requires=staccana-bridge-publisher.service
+
+[Timer]
+# `OnUnitActiveSec` measures from the start of the previous run, so a slow run
+# doesn't compound — if a sweep takes 30s, the next one fires 60s after the
+# previous one started, not 60s after it finished. AccuracySec=1s keeps drift
+# tight; the default of 1min would slop runs into 2-min windows on a busy box.
+OnBootSec=15s
+OnUnitActiveSec=60s
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

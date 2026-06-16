@@ -1,0 +1,59 @@
+# Cherryservers / Hetzner inventory for staccana v1 ops.
+# Copy to inventory.yml and fill in real IPs / SSH keys.
+
+all:
+  vars:
+    ansible_user: root
+    ansible_ssh_private_key_file: ~/.ssh/staccana_ops
+    staccana_repo_url: https://github.com/staccDOTsol/solana-classic.git
+    staccana_branch: staccana
+    staccana_install_dir: /opt/staccana
+
+  children:
+    validators:
+      vars:
+        staccana_role: validator
+      hosts:
+        val-us-west:
+          ansible_host: 1.2.3.4
+          staccana_region: us-west
+          ledger_nvme: /dev/nvme1n1
+        val-eu:
+          ansible_host: 1.2.3.5
+          staccana_region: eu
+          ledger_nvme: /dev/nvme1n1
+        val-apac:
+          ansible_host: 1.2.3.6
+          staccana_region: apac
+          ledger_nvme: /dev/nvme1n1
+
+    rpcs:
+      vars:
+        staccana_role: rpc
+      hosts:
+        rpc-us-west:
+          ansible_host: 1.2.3.10
+          staccana_region: us-west
+        rpc-us-east:
+          ansible_host: 1.2.3.11
+          staccana_region: us-east
+        rpc-eu:
+          ansible_host: 1.2.3.12
+          staccana_region: eu
+        rpc-apac:
+          ansible_host: 1.2.3.13
+          staccana_region: apac
+        rpc-sa:
+          ansible_host: 1.2.3.14
+          staccana_region: south-asia
+
+    attestors:
+      vars:
+        staccana_role: attestor
+      hosts:
+        # Each federation signer runs their own attestor.
+        # Federation member 0 (the staccana team's signer) lives on attestor-0.
+        attestor-0:
+          ansible_host: 1.2.3.20
+          federation_member_index: 0
+        # 1..8 hosted by independent signers under separate ops; not in this inventory.

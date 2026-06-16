@@ -1,0 +1,50 @@
+[package]
+name = "staccana-federation-attestor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Federation member daemon: watches mainnet vault Deposit events and staccana Burn events, signs ratio attestations per SPEC §5.3, and publishes signed R updates to the staccana bridge program."
+
+[[bin]]
+name = "staccana-federation-attestor"
+path = "src/main.rs"
+
+[[bin]]
+name = "staccana-bridge-mint-relay"
+path = "src/bin/bridge_mint_relay.rs"
+
+[[bin]]
+name = "staccana-bridge-release-relay"
+path = "src/bin/bridge_release_relay.rs"
+
+[[bin]]
+name = "staccana-validator-metrics-relay"
+path = "src/bin/validator_metrics_relay.rs"
+
+[lib]
+name = "staccana_federation_attestor"
+path = "src/lib.rs"
+
+[dependencies]
+solana-program = { workspace = true }
+solana-sdk = "2"
+solana-client = "2"
+solana-transaction-status-client-types = "2"
+# NOTE: real-time event subscriptions require `solana-pubsub-client = "2"`. Not pulled in
+# at v0 to keep the build surface small; see `observer.rs` for the integration TODO.
+tokio = { version = "1", features = ["full"] }
+clap = { version = "4", features = ["derive"] }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = "1"
+toml = "0.8"
+thiserror = { workspace = true }
+bs58 = "0.5"
+sha2 = "0.10"
+borsh = { version = "1", features = ["derive"] }
+base64 = "0.22"
+bincode = "1"
+# We sign with `solana_sdk::signature::Keypair` (which is ed25519 under the hood) so that the
+# resulting signatures verify against the on-chain federation pubkey set without bridging
+# format conventions. `ed25519-dalek` is intentionally not a direct dependency.

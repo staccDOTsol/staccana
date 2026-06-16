@@ -1,0 +1,25 @@
+[package]
+name = "staccana-genesis-emit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Compose a GenesisOutput into a ComposedGenesis ready for hand-off to the agave fork's genesis bootstrap."
+
+[[bin]]
+name = "staccana-genesis-emit"
+path = "src/main.rs"
+
+[lib]
+name = "staccana_genesis_emit"
+path = "src/lib.rs"
+
+[dependencies]
+staccana-genesis = { path = "../../genesis" }
+serde = { workspace = true }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+solana-program = { workspace = true }

@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Wallet-adapter UI styles (modal + multi-button). Imported here so the bundle
+   ships with them; we don't override the modal layout so the user sees the
+   stock wallet selection UI. */
+@import "@solana/wallet-adapter-react-ui/styles.css";
+
+@layer base {
+  :root {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 95%;
+    --card: 240 10% 6%;
+    --card-foreground: 0 0% 95%;
+    --primary: 142 71% 45%;
+    --primary-foreground: 240 10% 4%;
+    --secondary: 240 5% 12%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 240 4% 12%;
+    --muted-foreground: 240 5% 64%;
+    --accent: 240 5% 16%;
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 4% 18%;
+    --input: 240 4% 18%;
+    --ring: 142 71% 45%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* `<NetworkStatusBanner/>` now renders in normal flow above the header,
+     so the body-padding hack is gone — the banner pushes content down
+     naturally and z-index doesn't have to fight the wallet modal anymore. */
+}
+
+/* Bring the wallet-adapter button colors a little closer to our theme without
+   overriding its layout / icon rendering. */
+.wallet-adapter-button {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-family: inherit;
+  font-size: 0.875rem;
+  height: 2.5rem;
+  border-radius: var(--radius);
+}
+
+.wallet-adapter-button:not([disabled]):hover {
+  background-color: hsl(var(--primary) / 0.9);
+}
+
+.wallet-adapter-button-trigger {
+  background-color: hsl(var(--primary));
+}

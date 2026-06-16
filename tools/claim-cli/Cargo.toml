@@ -1,0 +1,28 @@
+[package]
+name = "staccana-claim-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "User-facing CLI: claim a staccana account with a mainnet keypair (Merkle proof + ed25519 precompile + claim ix)."
+
+[[bin]]
+name = "staccana-claim-cli"
+path = "src/main.rs"
+
+[lib]
+name = "staccana_claim_cli"
+path = "src/lib.rs"
+
+[dependencies]
+staccana-genesis = { path = "../../genesis" }
+solana-program = { workspace = true }
+solana-sdk = "2"
+solana-client = "2"
+serde = { workspace = true }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+bs58 = "0.5"
+borsh = "1"

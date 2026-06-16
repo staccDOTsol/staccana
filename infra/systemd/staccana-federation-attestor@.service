@@ -1,0 +1,42 @@
+[Unit]
+# Templated systemd unit — one instance per federation signer (1..9).
+# Enable with: `systemctl enable --now staccana-federation-attestor@1`
+# `%i` = the instance specifier (e.g. "1"), interpolated into the keypair path.
+Description=Staccana federation attestor (signer %i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=staccana
+Group=staccana
+Restart=on-failure
+RestartSec=10s
+
+# Each instance writes its own `attestor-state-<pubkey>.json` cursor file under this
+# dir; ensure it exists and is owned by the staccana user.
+StateDirectory=staccana/attestor
+StateDirectoryMode=0750
+
+Environment="RUST_LOG=info"
+
+# The local staccana validator on box 1 sits behind the cloudflared tunnel; the
+# attestor talks to it directly over loopback. Solana devnet is the bridge counterparty.
+ExecStart=/usr/local/bin/staccana-federation-attestor \
+  --signer-keypair /etc/staccana/federation/signer-%i.json \
+  --staccana-rpc http://localhost:8899 \
+  --solana-rpc https://api.devnet.solana.com \
+  --staccana-bridge LA7h3hjvD62MeTtdeE4h2vq3EGxbU1oqzHtewp4xb9b \
+  --bridge-vault F2AypZ8FDWnR5bdyLHzo4idof9YrBpdBmbgLwLBjLfVU \
+  --poll-interval 5 \
+  --state-dir /var/lib/staccana/attestor
+
+# Hardening: read-only filesystem except for state dir.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+ReadWritePaths=/var/lib/staccana/attestor
+
+[Install]
+WantedBy=multi-user.target

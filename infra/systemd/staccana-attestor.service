@@ -1,0 +1,19 @@
+[Unit]
+Description=Staccana federation attestor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=staccana
+Group=staccana
+Restart=on-failure
+RestartSec=10s
+
+Environment="RUST_LOG=info"
+
+ExecStart=/usr/local/bin/staccana-federation-attestor \
+  --config /etc/staccana/attestor.toml
+
+[Install]
+WantedBy=multi-user.target

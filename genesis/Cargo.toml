@@ -1,0 +1,12 @@
+[package]
+name = "staccana-genesis"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Genesis builder for Staccana — snapshot partition, treasury accumulation, Merkle root construction, classic v1 defaults."
+
+[dependencies]
+solana-program = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }

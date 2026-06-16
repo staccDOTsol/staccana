@@ -1,0 +1,49 @@
+# Rust
+/target
+**/*.rs.bk
+
+# Solana
+/test-ledger
+/.anchor
+*.so
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Local config
+.env
+.env.local
+*.log
+
+# Per-operator infra config (real IPs, keys). Template stays in version control.
+/infra/ansible/inventory.yml
+/infra/ansible/group_vars/*.yml
+!/infra/ansible/inventory.yml.example
+/infra/cloudflare/.env
+/etc/staccana/
+
+# Genesis artifacts (large, regenerable from snapshot tooling)
+/genesis-out
+/snapshot-cache
+.vercel
+
+# Out-of-tree wasm package (built and published to npm separately)
+/proofs-pkg
+
+# ── SECRETS: private keypairs — NEVER commit (enumerated 2026-06-16) ──
+# 3 authority keypairs: lazy-claim-v2 / megadrop-v2 / validator-subsidy-v2
+/keys/
+# 17 surfpool test-ledger keypairs (faucet/stake/validator/vote + payer) live here;
+# dir is also ~890M of regenerable surfpool artifacts.
+/.codex-whirlpools-artifacts/
+# Defense-in-depth: catch any solana-keygen output (faucet/vote/stake/validator) anywhere in the tree
+*-keypair.json
+
+# ── Local agent/tooling bloat — not source, never commit (added 2026-06-16) ──
+# .claude/ = local worktrees + scheduler lock; .codex-whirlpools/ = local tooling state
+/.claude/
+/.codex-whirlpools/

@@ -1,0 +1,42 @@
+{
+  "name": "@stacc/zcash-agent-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for private agent messaging over Zcash shielded memos.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "zcash-agent-mcp": "./dist/index.js",
+    "zam": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "npm run build && node test/offline.mjs && node test/mcp-smoke.mjs && node test/cli-smoke.mjs"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE",
+    "server.json"
+  ],
+  "keywords": [
+    "zcash",
+    "mcp",
+    "agents",
+    "shielded",
+    "memo",
+    "messaging"
+  ],
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,29 @@
+[package]
+name = "staccana-snapshot-fork"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "CLI: read a Solana mainnet snapshot, partition every account, and emit a Staccana GenesisOutput (Merkle root + treasury + classic defaults)."
+
+[[bin]]
+name = "staccana-snapshot-fork"
+path = "src/main.rs"
+
+[lib]
+name = "staccana_snapshot_fork"
+path = "src/lib.rs"
+
+[dependencies]
+staccana-genesis = { path = "../../genesis" }
+solana-program = { workspace = true }
+solana-accounts-db = "2"
+serde = { workspace = true }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+anyhow = { workspace = true }
+bincode = "1"
+bs58 = "0.5"
+tar = "0.4"
+tempfile = "3"
+zstd = "0.13"

@@ -1,0 +1,217 @@
+# Multi-arch staccana validator image (linux/amd64 + linux/arm64).
+#
+# APPROACH: QEMU-emulated native per-arch build.
+# ---------------------------------------------
+# `docker buildx build --platform linux/amd64,linux/arm64` runs this Dockerfile
+# once per target. For the foreign arch, BuildKit transparently runs every RUN
+# step inside a qemu-user-static-emulated container, so `cargo build` produces
+# a real ELF for that arch (no cross-compile toolchain required). The upside is
+# correctness — every transitive build.rs / proc-macro / bindgen invocation just
+# works. The downside is wall time: the arm64 build under amd64 QEMU emulation
+# takes 45–90 minutes on a typical laptop.
+#
+# Why not amd64→aarch64 cross-compile?
+#   agave's dependency tree (rocksdb-sys, ring, secp256k1-sys, openssl-sys,
+#   blst, libudev-sys, …) drags in C/C++ build.rs scripts that misbehave under
+#   `--target aarch64-unknown-linux-gnu` unless you also stage:
+#     CC_aarch64_unknown_linux_gnu, CXX_aarch64_unknown_linux_gnu,
+#     AR_aarch64_unknown_linux_gnu, BINDGEN_EXTRA_CLANG_ARGS=-I/usr/aarch64…,
+#     PKG_CONFIG_SYSROOT_DIR, OPENSSL_DIR per-arch, libclang multiarch…
+#   Each fork of agave hits this differently. QEMU sidesteps the entire mess.
+#
+# WHY THE PREVIOUS VERSION SHIPPED x86-64 BINARIES ON ARM64
+# ---------------------------------------------------------
+# Two compounding bugs:
+#  1. `docker/build-and-push.sh` defaulted to PLATFORM=linux/amd64, so even
+#     though the Dockerfile *could* build multiarch, only amd64 was ever
+#     pushed. An arm64 host pulling :latest got the amd64 manifest and
+#     `solana-keygen` segfaulted with the "/lib64/ld-linux-x86-64.so.2"
+#     ELF-loader error.
+#  2. LIBCLANG_PATH was pinned to /usr/lib/llvm-14/lib which doesn't exist on
+#     bookworm (the `clang` meta-package on bookworm pulls in llvm-14 but the
+#     libclang.so.1 lives at /usr/lib/<arch>-linux-gnu/). Bindgen would fall
+#     back via clang-sys discovery, but on the slower QEMU arm64 stage this
+#     occasionally caused crates to skip native-arch detection and produce
+#     hybrid binaries. We now let clang-sys autodetect.
+#
+# The fix in this file:
+#   - Both stages explicitly use --platform=$TARGETPLATFORM.
+#   - Build invariants are sanity-checked at the end of the builder stage:
+#     the produced solana-keygen ELF arch is asserted to match TARGETARCH and
+#     the build fails loudly if not.
+#   - LIBCLANG_PATH is no longer hardcoded.
+#   - build-and-push.sh defaults to the multi-arch platform list.
+#
+# GLIBC NOTE — both stages MUST stay on the same Debian release so the binary
+# produced in stage 1 doesn't reference glibc symbols newer than what stage 2
+# provides. We pin both to bookworm (glibc 2.36) to keep the runtime image
+# small + portable. Older RHEL/Amazon Linux/Ubuntu 22.04 hosts (glibc 2.35)
+# CANNOT run a binary built on bookworm — for those, build with a buster-based
+# rust image (glibc 2.28) at the cost of CPU optimizations. Conversely, do not
+# upgrade the builder past the runtime; that's exactly the bug that produces
+#   "agave-validator: /lib/.../libc.so.6: version `GLIBC_2.38' not found"
+# (which happens when the validator binary copied in was built against
+# glibc 2.38+ but the runtime image has glibc < 2.38).
+#
+# Build with buildx (one-time setup):
+#   docker run --privileged --rm tonistiigi/binfmt --install all
+#   docker buildx create --name staccana-multi --driver docker-container --use
+#   docker buildx inspect --bootstrap
+#
+# Then build + push:
+#   docker buildx build --platform linux/amd64,linux/arm64 \
+#     -f docker/Dockerfile.multiarch \
+#     -t jrsdunn/solana-classic-validator:v2.0.0-multiarch-20260502 \
+#     -t jrsdunn/solana-classic-validator:latest \
+#     --push .
+#
+# Verify the pushed manifest list:
+#   docker buildx imagetools inspect jrsdunn/solana-classic-validator:latest
+#     # should list both linux/amd64 and linux/arm64 entries
+#
+# Build context expects:
+#   ./agave-src/             — git checkout of agave (or staccana fork) sources
+#   ./ledger/                — genesis.bin + rocksdb seed (arch-independent)
+#   ./program-ids.json
+#   ./staccana-run.sh
+
+ARG RUST_VERSION=1.89.0
+# Pin Debian release for both stages so glibc on the build host == glibc on the
+# runtime host. Bumping this single ARG bumps both — keeps them in lockstep.
+ARG DEBIAN_RELEASE=bookworm
+
+# ---------- builder stage (per-arch native compile under QEMU) ----------
+# The --platform=$TARGETPLATFORM annotation is what makes buildx pull the
+# native image for each target arch (e.g. arm64v8/rust on the arm64 pass).
+FROM --platform=$TARGETPLATFORM rust:${RUST_VERSION}-slim-${DEBIAN_RELEASE} AS builder
+
+ARG TARGETARCH
+ARG TARGETPLATFORM
+ARG BUILDARCH
+ARG BUILDPLATFORM
+RUN echo "[builder] BUILDPLATFORM=$BUILDPLATFORM TARGETPLATFORM=$TARGETPLATFORM" && \
+    echo "[builder] uname -m: $(uname -m) — should match TARGETARCH=$TARGETARCH" && \
+    case "$TARGETARCH" in \
+      amd64) expected=x86_64 ;; \
+      arm64) expected=aarch64 ;; \
+      *) echo "unsupported TARGETARCH=$TARGETARCH" >&2; exit 1 ;; \
+    esac && \
+    if [ "$(uname -m)" != "$expected" ]; then \
+      echo "FATAL: builder running on $(uname -m) but TARGETARCH=$TARGETARCH expects $expected." >&2; \
+      echo "Did you forget to register qemu-user-static via 'docker run --privileged --rm tonistiigi/binfmt --install all'?" >&2; \
+      exit 1; \
+    fi
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential pkg-config libssl-dev libudev-dev clang cmake \
+        libclang-dev llvm-dev \
+        protobuf-compiler git curl ca-certificates file && \
+    rm -rf /var/lib/apt/lists/*
+
+# Let clang-sys / bindgen auto-discover libclang from the installed `libclang-dev`
+# package. Hardcoding LIBCLANG_PATH to a specific llvm-N dir is fragile across
+# Debian point releases and across architectures (amd64 puts it under
+# /usr/lib/x86_64-linux-gnu, arm64 under /usr/lib/aarch64-linux-gnu).
+
+WORKDIR /build
+COPY agave-src/ ./
+
+# Build only the binaries we ship. Each `cargo build` reuses the shared target
+# dir so dep crates only compile once. We delete target/ at the end to keep
+# this stage's filesystem image small (matters when the previous stage is
+# referenced by COPY --from=).
+# NOTE: agave 3.x removed `agave-ledger-tool` from the workspace `members =`
+# list. The crate source still ships under `ledger-tool/` but `cargo build
+# --bin agave-ledger-tool` errors with "no bin target named". staccana's
+# runtime doesn't use ledger-tool (val-1 only ships `agave-validator`,
+# `solana`, `solana-keygen`), so we just don't build it. If you need
+# ledger-tool again, either upgrade-to-2.x-style and re-add it to workspace
+# members, or `cd ledger-tool && cargo build --release` standalone.
+RUN cargo build --release \
+        --bin agave-validator \
+        --bin solana \
+        --bin solana-keygen && \
+    cp /build/target/release/agave-validator   /usr/local/bin/agave-validator && \
+    cp /build/target/release/solana            /usr/local/bin/solana && \
+    cp /build/target/release/solana-keygen     /usr/local/bin/solana-keygen && \
+    rm -rf /build/target /build /usr/local/cargo/registry/cache
+
+# Sanity-check: the binaries we just produced must actually be the target arch.
+# If buildx/qemu wasn't set up correctly, the whole stage may have run as the
+# host arch and we'd silently bake an x86-64 binary into an arm64 image — that
+# is the exact "/lib64/ld-linux-x86-64.so.2" bug we're guarding against.
+RUN set -eu; \
+    case "$TARGETARCH" in \
+      amd64) want="x86-64" ;; \
+      arm64) want="aarch64" ;; \
+      *) echo "unsupported TARGETARCH=$TARGETARCH" >&2; exit 1 ;; \
+    esac; \
+    for b in agave-validator solana solana-keygen; do \
+      info=$(file -b "/usr/local/bin/$b"); \
+      echo "[builder][verify] $b: $info"; \
+      case "$info" in \
+        *"$want"*) ;; \
+        *) echo "FATAL: /usr/local/bin/$b does not look like $want (TARGETARCH=$TARGETARCH)" >&2; exit 1 ;; \
+      esac; \
+    done
+
+# ---------- runtime stage ----------
+# Pin runtime to the SAME Debian release as the builder so glibc symbols
+# resolve. Mismatching builder/runtime is the root cause of:
+#   "version `GLIBC_2.38' not found (required by agave-validator)"
+# Debian bookworm = glibc 2.36; trixie = glibc 2.41 (uncomment when stable).
+FROM --platform=$TARGETPLATFORM debian:${DEBIAN_RELEASE}-slim
+
+ARG TARGETARCH
+ARG TARGETPLATFORM
+RUN echo "[runtime] TARGETPLATFORM=$TARGETPLATFORM uname -m=$(uname -m)"
+
+EXPOSE 8899/tcp 8900/tcp 8001/tcp 8001/udp \
+       8000/udp 8002/udp 8003/udp 8004/udp 8005/udp 8006/udp 8007/udp 8008/udp 8009/udp \
+       8010-8020/udp
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        bzip2 libssl3 ca-certificates curl jq tini file && \
+    rm -rf /var/lib/apt/lists/* && \
+    useradd -r -m -d /var/lib/staccana -s /bin/bash staccana && \
+    mkdir -p /var/lib/staccana/ledger /var/lib/staccana/accounts \
+             /var/log/staccana /etc/staccana/keys /var/staccana/seed-ledger && \
+    chown -R staccana:staccana /var/lib/staccana /var/log/staccana \
+                                /etc/staccana /var/staccana
+
+# Pull the freshly-compiled binaries from the builder stage (per-arch).
+COPY --from=builder /usr/local/bin/agave-validator   /usr/local/bin/agave-validator
+COPY --from=builder /usr/local/bin/solana            /usr/local/bin/solana
+COPY --from=builder /usr/local/bin/solana-keygen     /usr/local/bin/solana-keygen
+
+# One last belt-and-braces check at runtime-image bake time: assert the
+# binaries are loadable on this image's loader (catches glibc skew + arch
+# mismatches). `solana-keygen --version` is a cheap no-network smoke test.
+RUN set -eu; \
+    case "$TARGETARCH" in \
+      amd64) want="x86-64" ;; \
+      arm64) want="aarch64" ;; \
+      *) echo "unsupported TARGETARCH=$TARGETARCH" >&2; exit 1 ;; \
+    esac; \
+    for b in agave-validator solana solana-keygen; do \
+      info=$(file -b "/usr/local/bin/$b"); \
+      echo "[runtime][verify] $b: $info"; \
+      case "$info" in \
+        *"$want"*) ;; \
+        *) echo "FATAL: /usr/local/bin/$b is not $want — multiarch build was misconfigured" >&2; exit 1 ;; \
+      esac; \
+    done; \
+    /usr/local/bin/solana-keygen --version
+
+# Arch-independent payload.
+COPY --chown=staccana:staccana ledger/   /var/staccana/seed-ledger/
+COPY --chown=staccana:staccana program-ids.json /var/staccana/program-ids.json
+COPY --chmod=0755 staccana-run.sh /usr/local/bin/staccana-run.sh
+
+USER staccana
+WORKDIR /var/lib/staccana
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/staccana-run.sh"]
+CMD []

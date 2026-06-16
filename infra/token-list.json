@@ -1,0 +1,82 @@
+{
+  "name": "Staccana Token List",
+  "version": {
+    "major": 0,
+    "minor": 1,
+    "patch": 0
+  },
+  "logoURI": "https://mp.fun/logo.svg",
+  "tags": {
+    "bridge": {
+      "name": "bridge",
+      "description": "Token-22 mints issued by the staccana bridge against mainnet-locked underlying."
+    },
+    "native": {
+      "name": "native",
+      "description": "Native staccana tokens (claim-derived or pump-launched)."
+    },
+    "stable": {
+      "name": "stable",
+      "description": "Stablecoin (relative to USD)."
+    },
+    "lst": {
+      "name": "lst",
+      "description": "Liquid staking token; ratio drifts upward over time."
+    },
+    "confidential": {
+      "name": "confidential",
+      "description": "Mint has the Token-22 Confidential Transfer Extension active."
+    }
+  },
+  "tokens": [
+    {
+      "chainId": 0,
+      "address": "So11111111111111111111111111111111111111112",
+      "symbol": "SOL",
+      "name": "Staccana Native SOL (wrapped)",
+      "decimals": 9,
+      "logoURI": "https://mp.fun/logos/sol.svg",
+      "tags": ["native"],
+      "extensions": {
+        "note": "Wrapped form of staccana's native SOL gas token. Same canonical address as Solana mainnet wSOL."
+      }
+    },
+    {
+      "chainId": 0,
+      "address": "TBD_STSOL_MINT",
+      "symbol": "stSOL",
+      "name": "Staccana stSOL (pSYRUP-backed)",
+      "decimals": 9,
+      "logoURI": "https://mp.fun/logos/stsol.svg",
+      "tags": ["bridge", "lst", "confidential"],
+      "extensions": {
+        "underlying": "pSYRUP on Solana mainnet",
+        "spec": "docs/BRIDGE.md",
+        "ratio_pda_seeds": ["ratio", "asset_id_le=0"]
+      }
+    },
+    {
+      "chainId": 0,
+      "address": "TBD_SSUSDC_MINT",
+      "symbol": "ssUSDC",
+      "name": "Staccana ssUSDC (USDC-backed)",
+      "decimals": 6,
+      "logoURI": "https://mp.fun/logos/ssusdc.svg",
+      "tags": ["bridge", "stable", "confidential"],
+      "extensions": {
+        "underlying": "USDC on Solana mainnet",
+        "spec": "docs/BRIDGE.md",
+        "ratio_pda_seeds": ["ratio", "asset_id_le=1"]
+      }
+    }
+  ],
+  "_meta": {
+    "schema_url": "https://uniswap.org/tokenlist.schema.json",
+    "schema_note": "We extend the Uniswap token list schema with a per-token `extensions` block for staccana-specific metadata (underlying mint, ratio PDA, bridge spec link). chainId=0 is the staccana convention since Solana doesn't use EVM chain IDs.",
+    "todo": [
+      "Replace TBD_STSOL_MINT and TBD_SSUSDC_MINT with the real mint addresses once register_asset is run on mainnet-sigma.",
+      "Add secret-pump-launched tokens via an auto-discovery service that watches the secret-pump program and updates this list.",
+      "Add icons / logos to a Cloudflare R2 bucket and update logoURI fields."
+    ]
+  }
+}

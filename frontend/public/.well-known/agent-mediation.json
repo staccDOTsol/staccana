@@ -1,0 +1,34 @@
+{
+  "name": "staccana agentic mediation",
+  "version": "0.1.0",
+  "service": "neutral dispute forum for agent and agent-delegated commerce",
+  "neutral_default": "advisory and non-binding unless both parties pre-commit escrow, contract, or processor enforcement",
+  "manifest": "/api/mediation/manifest",
+  "case_intake": "/api/mediation/cases",
+  "skill": "/skills/agentic-mediation/SKILL.md",
+  "tools": [
+    "mediation.file_claim",
+    "mediation.answer_claim",
+    "mediation.submit_evidence",
+    "mediation.offer_peer_compute",
+    "mediation.score_standing",
+    "mediation.issue_award"
+  ],
+  "payment_rails": [
+    "ap2",
+    "x402",
+    "stripe",
+    "stablecoin_escrow",
+    "okx",
+    "zcash_memo",
+    "reputation_only"
+  ],
+  "roles": [
+    "claimant",
+    "respondent",
+    "advocate",
+    "juror",
+    "game_master",
+    "escrow_executor"
+  ]
+}

@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Resolve the staccana SBF/BPF builder and forward all args to it.
+#
+# This gives deployment scripts one stable entrypoint for the SBF/BPF builder.
+# Prefer the installed Agave/Solana builder when it is new enough for the current
+# lockfile, then fall back to local staccana/agave checkouts.
+
+set -euo pipefail
+
+ROOT="${STACCANA_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+
+ensure_syscalls_txt() {
+  local sdk="$1"
+  local syscalls="$sdk/syscalls.txt"
+  local runtime_src="$ROOT/.claude/worktrees/determined-hellman-fc210a/programs/bpf_loader/src/syscalls/mod.rs"
+  local tmp
+
+  [[ -d "$sdk" ]] || return 0
+  if [[ -s "$syscalls" ]] && grep -qx 'sol_try_find_program_address' "$syscalls"; then
+    return 0
+  fi
+
+  tmp="$(mktemp)"
+  if [[ -f "$runtime_src" ]] && command -v rg >/dev/null 2>&1; then
+    rg -o 'register_function\("[^"]+"' "$runtime_src" \
+      | sed -E 's/.*register_function\("([^"]+)"/\1/' \
+      >> "$tmp"
+  fi
+  if [[ -d "$sdk/c/inc/sol/inc" ]]; then
+    sed -nE 's/^@SYSCALL.* (sol_[A-Za-z0-9_]+)\(.*/\1/p' "$sdk"/c/inc/sol/inc/*.inc \
+      >> "$tmp"
+    {
+      printf '%s\n' abort
+      printf '%s\n' sol_invoke_signed_rust
+    } >> "$tmp"
+  fi
+  sort -u "$tmp" -o "$tmp"
+
+  if [[ -s "$tmp" ]]; then
+    cp "$tmp" "$syscalls"
+  fi
+  rm -f "$tmp"
+}
+
+if [[ -n "${STACCANA_CARGO_BUILD_SBF:-}" ]]; then
+  exec "$STACCANA_CARGO_BUILD_SBF" "$@"
+fi
+
+if command -v cargo-build-sbf >/dev/null 2>&1; then
+  version_line="$(cargo-build-sbf --version 2>/dev/null | head -n1 || true)"
+  if [[ "$version_line" =~ solana-cargo-build-sbf\ ([3-9]|[1-9][0-9])\. ]]; then
+    ensure_syscalls_txt "$(dirname "$(command -v cargo-build-sbf)")/platform-tools-sdk/sbf"
+    exec cargo-build-sbf "$@"
+  fi
+fi
+
+for candidate in \
+  "$ROOT/agave-src/cargo-build-sbf" \
+  "$ROOT/.claude/worktrees/determined-hellman-fc210a/cargo-build-sbf" \
+  "$ROOT/.claude/worktrees/angry-vaughan-52bbce/cargo-build-sbf"
+do
+  if [[ -x "$candidate" && -d "$(dirname "$candidate")/platform-tools-sdk/sbf" ]]; then
+    ensure_syscalls_txt "$(dirname "$candidate")/platform-tools-sdk/sbf"
+    exec "$candidate" "$@"
+  fi
+done
+
+if command -v cargo-build-sbf >/dev/null 2>&1; then
+  ensure_syscalls_txt "$(dirname "$(command -v cargo-build-sbf)")/platform-tools-sdk/sbf"
+fi
+exec cargo-build-sbf "$@"

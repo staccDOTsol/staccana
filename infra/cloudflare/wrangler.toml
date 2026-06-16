@@ -1,0 +1,4 @@
+name = "rpc-mp-fun-compat"
+main = "rpc-compat-worker.js"
+compatibility_date = "2024-09-01"
+routes = [{ pattern = "rpc.mp.fun/*", zone_name = "mp.fun" }]

@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "claimable_root": [
+    253,
+    153,
+    34,
+    235,
+    8,
+    143,
+    158,
+    8,
+    124,
+    223,
+    238,
+    80,
+    32,
+    178,
+    14,
+    69,
+    63,
+    15,
+    111,
+    65,
+    103,
+    210,
+    181,
+    23,
+    56,
+    126,
+    124,
+    102,
+    52,
+    141,
+    97,
+    52
+  ],
+  "claimable_count": 85655757,
+  "treasury": {
+    "total_lamports": 485192075139020370,
+    "account_count": 1041776142
+  },
+  "fee_governor": {
+    "target_lamports_per_signature": 27000000,
+    "target_signatures_per_slot": 0,
+    "min_lamports_per_signature": 27000000,
+    "max_lamports_per_signature": 27000000,
+    "burn_percent": 50
+  },
+  "inflation_disabled": true,
+  "constants": {
+    "fixed_transaction_fee_lamports": 27000000,
+    "vote_transaction_fee_lamports": 5000,
+    "burn_percent": 50
+  }
+}

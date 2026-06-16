@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      solana:
+        patterns:
+          - "solana-*"
+          - "spl-*"
+      anchor:
+        patterns:
+          - "anchor-*"
+      serde:
+        patterns:
+          - "serde*"
+    ignore:
+      # Pin solana-program at the workspace's chosen major version until we explicitly
+      # decide to bump.
+      - dependency-name: "solana-program"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"

@@ -1,0 +1,55 @@
+[Unit]
+Description=Staccana validator (bootstrap / val-1 — runs without --entrypoint)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=staccana
+Group=staccana
+LimitNOFILE=2000000
+LimitNPROC=65535
+TimeoutStopSec=180
+Restart=on-failure
+RestartSec=10s
+
+# Adjust these env paths per box
+Environment="RUST_LOG=solana=info,solana_metrics=warn"
+Environment="SOLANA_METRICS_CONFIG=host=https://metrics.example,db=staccana,u=writer,p=changeme"
+
+# Public IP this validator advertises in gossip. Without it, agave defaults to
+# 127.0.0.1 (because there's no entrypoint to ask for public IP), which means
+# val-2 sees val-1 as 127.0.0.1:* in gossip and can't actually reach val-1's
+# TPU/TVU over the network. Cherryservers val-bootstrap is at 84.32.220.211.
+Environment="STACCANA_THIS_PUBLIC_IP=84.32.220.211"
+
+# Bootstrap validator pattern from agave's multinode-demo/bootstrap-validator.sh
+# adapted for cross-host: NO --entrypoint (val-1 is the seed; skipping
+# entrypoint also skips agave's port-reachability check naturally), but WITH
+# --gossip-host so val-1 advertises its real public IP to val-2 over gossip.
+ExecStart=/usr/local/bin/agave-validator \
+  --identity /etc/staccana/keys/identity.json \
+  --vote-account /etc/staccana/keys/vote.json \
+  --authorized-voter /etc/staccana/keys/vote.json \
+  --ledger /var/lib/staccana/ledger \
+  --accounts /var/lib/staccana/accounts \
+  --snapshot-interval-slots 200 \
+  --no-incremental-snapshots \
+  --limit-ledger-size 200000000 \
+  --no-poh-speed-test \
+  --no-os-network-limits-test \
+  --no-wait-for-vote-to-start-leader \
+  --gossip-host ${STACCANA_THIS_PUBLIC_IP} \
+  --full-rpc-api \
+  --enable-rpc-transaction-history \
+  --enable-extended-tx-metadata-storage \
+  --rpc-pubsub-enable-block-subscription \
+  --allow-private-addr \
+  --rpc-port 8899 \
+  --rpc-bind-address 127.0.0.1 \
+  --gossip-port 8001 \
+  --dynamic-port-range 8002-8020 \
+  --log /var/log/staccana/validator.log
+
+[Install]
+WantedBy=multi-user.target

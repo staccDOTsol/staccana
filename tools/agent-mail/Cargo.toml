@@ -1,0 +1,27 @@
+[package]
+name = "staccana-agent-mail"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Local CLI for Staccana agent message amount-packet encoding and MegaTxn estimates."
+
+[[bin]]
+name = "agent-mail"
+path = "src/main.rs"
+
+[lib]
+name = "staccana_agent_mail"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+sha2 = "0.10"
+solana-client = "2"
+solana-sdk = "2"
+solana-system-interface = "1"
+staccana-agent-messaging = { path = "../../agent-messaging" }
+
+[dev-dependencies]
+staccana-agent-faucet = { path = "../../programs/agent-faucet" }

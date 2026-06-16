@@ -1,0 +1,15 @@
+[package]
+name = "staccana-matcher"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Per-mint frequent batch auction matcher for the Staccana consensus rule."
+
+[dependencies]
+solana-program = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+rand = "0.8"

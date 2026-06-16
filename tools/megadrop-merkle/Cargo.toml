@@ -1,0 +1,31 @@
+[package]
+name = "staccana-megadrop-merkle"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Build the megadrop Merkle tree + per-holder allocations from operator-held snapshot files (based_stacc_0 + proofv3 holder lists)."
+
+[[bin]]
+name = "staccana-megadrop-merkle"
+path = "src/main.rs"
+
+[lib]
+name = "staccana_megadrop_merkle"
+path = "src/lib.rs"
+
+[dependencies]
+# `staccana-genesis` carries the canonical Merkle tree builder used at genesis bake;
+# we route through it so the root we emit matches byte-for-byte what the on-chain
+# verifier in `programs/megadrop/src/merkle.rs` will recompute.
+staccana-genesis = { path = "../../genesis" }
+solana-program = { workspace = true }
+solana-sdk = "2"
+serde = { workspace = true }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

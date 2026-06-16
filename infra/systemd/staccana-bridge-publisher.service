@@ -1,0 +1,25 @@
+[Unit]
+# Federation mint-relay publisher: every minute, sweep the mainnet bridge-vault for
+# recent deposits and submit any un-attested ones to the staccana bridge `mint` ix.
+#
+# Paired with `staccana-bridge-publisher.timer` which fires this oneshot every 60s.
+# Stateless and self-healing — see the script's header for why.
+Description=Staccana federation bridge mint-relay publisher (oneshot, fired every 60s)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/staccana-bridge-publisher.sh
+
+# Hardening — the script only needs the federation keypairs, the relay binary, and
+# outbound network. No filesystem writes outside /tmp.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+
+# Environment — override here rather than editing the script if defaults need tuning.
+Environment="SOLANA_RPC=https://api.mainnet-beta.solana.com"
+Environment="BRIDGE_VAULT=BwimCCoPP5of41ukG1wA1gLz5wXQ4mmbcmjdFT9M1mBL"
+Environment="LIMIT=50"

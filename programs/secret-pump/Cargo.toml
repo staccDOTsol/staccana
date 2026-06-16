@@ -1,0 +1,31 @@
+[package]
+name = "staccana-secret-pump"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Staccana confidential bonding-curve launchpad — pump.fun-style virtual constant-product curve over Token-22 mints with the Confidential Transfer extension active by default."
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+anchor-lang = "1"
+anchor-spl = { version = "1", features = ["token_2022"] }
+# Anchor 1.0's `anchor_spl::token_2022` re-exports `spl_token_2022_interface as
+# spl_token_2022`. We pin the same crate directly so `extension::*` constructors and
+# `state::Account::LEN` resolve to the same types as the anchor_spl re-export — needed
+# because we drive Token-22 mint/account creation via raw ixs (Anchor's `init` cannot
+# init a mint with the Confidential Transfer extension active).
+spl-token-2022 = { package = "spl-token-2022-interface", version = "2" }
+
+[features]
+# Enable the BPF entrypoint via Anchor's `#[program]` macro. Off in unit tests so the host
+# test runner doesn't trip over `solana_program::entrypoint!`.
+default = ["bpf-entrypoint"]
+bpf-entrypoint = []
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]

@@ -1,0 +1,106 @@
+[package]
+name = "staccana-genesis-bake"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Bake a real Solana genesis.bin from a ComposedGenesis: pre-credits the treasury PDA, embeds the lazy-claim Merkle root, registers the Staccana programs as upgradeable builtins, and activates the four CTE feature gates at slot 0."
+
+[[bin]]
+name = "staccana-genesis-bake"
+path = "src/main.rs"
+
+[lib]
+name = "staccana_genesis_bake"
+path = "src/lib.rs"
+
+[dependencies]
+# Workspace siblings: pull the CTE gate constants, fee governor wire format, and the
+# typed ComposedGenesis from the existing pure pipeline.
+staccana-genesis = { path = "../../genesis" }
+staccana-genesis-emit = { path = "../genesis-emit" }
+staccana-lazy-claim = { path = "../../programs/lazy-claim", default-features = false }
+
+# Solana 2.x crate set. We deliberately avoid `solana-runtime` / `solana-genesis` (the
+# heavy ones) — `solana-genesis-config` carries the GenesisConfig type plus
+# bincode-backed `write` / `load`, which is all we need to produce a validator-readable
+# `genesis.bin`.
+solana-genesis-config = { version = "2", features = ["serde"] }
+solana-account = { version = "2", features = ["bincode", "serde"] }
+solana-pubkey = { version = "2", features = ["serde", "std"] }
+solana-keypair = "2"
+solana-signer = "2"
+solana-hash = { version = "2", features = ["serde"] }
+solana-cluster-type = { version = "2", features = ["serde"] }
+solana-fee-calculator = { version = "2", features = ["serde"] }
+solana-inflation = { version = "2", features = ["serde"] }
+solana-feature-gate-interface = { version = "2", features = ["bincode"] }
+# Lets us iterate every runtime feature gate the agave validator knows about
+# so we can activate them all at slot 0 (mirrors `solana-test-validator`'s
+# behavior). Without this, core-BPF programs from current mainnet hit
+# `unsupported BPF instruction` because their SBPFv3 / new syscalls are gated
+# behind features our cluster never flipped on. agave-feature-set 2.x is
+# version-aligned with our other 2.x deps; bump in lockstep with agave.
+agave-feature-set = "2"
+solana-sdk-ids = "2"
+solana-rent = { version = "2", features = ["serde"] }
+# Lets us set EpochSchedule explicitly in genesis. The default schedule
+# (slots_per_epoch=432_000, warmup=true) gates stake activation through the
+# warmup curve — meaning in epoch 0 only the bootstrap-validator stake counts
+# as active, even for additional bootstrap validators baked with the
+# Epoch::MAX delegation marker. The cluster produces a few bootstrap-leader
+# slots and then stalls because no other validator is treated as a leader.
+# Setting warmup=false short-circuits warmup so all 4 baked stakes
+# participate in the slot-0 leader schedule.
+solana-epoch-schedule = "2"
+solana-loader-v3-interface = { version = "3", features = ["serde", "bincode"] }
+# Vote + stake program crates: needed to materialize a fully-initialized vote
+# account + delegated stake account at slot 0 so the runtime's `Bank::new_with_paths`
+# doesn't panic with "no staked nodes exist" while bootstrapping the bank from
+# genesis. We use the pure constructors (`vote_state::create_account`,
+# `stake_state::create_account`) — the same ones `solana_runtime::genesis_utils`
+# calls — so the byte layout we produce is identical to what vanilla
+# `solana-genesis` would have written. We also call
+# `solana_stake_program::add_genesis_accounts` to install the stake config + epoch
+# rewards sysvar that the runtime expects in the accounts map.
+#
+# `default-features = false` on `solana-vote-program` strips the `metrics` feature,
+# which would otherwise pull in `solana-metrics` (heavy network deps); the
+# constructors we call don't touch metrics.
+solana-vote-program = { version = "2", default-features = false }
+solana-stake-program = "2"
+# `solana-ledger` carries `blockstore::create_new_ledger`, which seeds slot 0 of the
+# blockstore with PoH tick entries derived from the genesis hash. Without this, a
+# fresh validator boot panics with `InvalidBlock(Incomplete)` at `process_bank_0` —
+# `genesis.bin` alone is insufficient to bootstrap a runnable ledger; the blockstore
+# must contain the genesis tick entries that the runtime replays as bank 0. Vanilla
+# `solana-genesis` does this for us; doing it ourselves means dragging this crate in.
+solana-ledger = "2"
+# `solana-program` is needed to bridge into the `solana_program::hash::Hash` and
+# `solana_program::pubkey::Pubkey` types that `staccana-lazy-claim::state::LazyClaimConfig`
+# expects. This is the same crate the `staccana-genesis` crate uses for its own
+# `MerkleRoot(Hash)` so we get a consistent type universe across the workspace.
+solana-program = { workspace = true }
+
+# Token-22 mint baking — we need access to the on-chain Mint state encoder
+# + the ConfidentialTransferMint extension TLV layout so we can produce a
+# binary-identical mint account at slot 0.
+spl-token-2022 = { version = "8", default-features = false, features = ["no-entrypoint"] }
+spl-pod = "0.5"
+
+# Auxiliary.
+clap = { version = "4", features = ["derive"] }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = "1"
+bincode = "1"
+bs58 = "0.5"
+
+[dev-dependencies]
+tempfile = "3"
+# Type-level access to the on-chain state types used in tests to round-trip / assert
+# the layout of vote and stake accounts the bake produces. Both are already in the
+# build graph via `solana-vote-program` / `solana-stake-program`; declaring them here
+# makes them `use`-able directly from test code.
+solana-vote-interface = { version = "2", features = ["bincode"] }
+solana-stake-interface = { version = "2", features = ["bincode"] }

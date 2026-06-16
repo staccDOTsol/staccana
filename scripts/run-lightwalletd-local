@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+data_dir="${LWD_DATA_DIR:-/Users/stacc/.lightwalletd-agent/mainnet}"
+zcash_conf="${ZCASH_CONF:-/Users/stacc/.zcash/zcash.conf}"
+grpc_bind="${LWD_GRPC_BIND:-127.0.0.1:9067}"
+http_bind="${LWD_HTTP_BIND:-127.0.0.1:9068}"
+log_file="${LWD_LOG_FILE:-/dev/stdout}"
+
+mkdir -p "$data_dir"
+
+exec lightwalletd \
+  --no-tls-very-insecure \
+  --zcash-conf-path "$zcash_conf" \
+  --data-dir "$data_dir" \
+  --grpc-bind-addr "$grpc_bind" \
+  --http-bind-addr "$http_bind" \
+  --log-file "$log_file"

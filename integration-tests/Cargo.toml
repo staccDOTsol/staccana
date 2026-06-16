@@ -1,0 +1,33 @@
+[package]
+name = "staccana-integration-tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Cross-crate integration tests, end-to-end flows, property-based invariant tests, and SPEC.md byte-format conformance checks for Staccana."
+
+[lib]
+name = "staccana_integration_tests"
+path = "src/lib.rs"
+
+[dependencies]
+staccana-matcher = { path = "../matcher" }
+staccana-genesis = { path = "../genesis" }
+staccana-lazy-claim = { path = "../programs/lazy-claim" }
+staccana-claim-cli = { path = "../tools/claim-cli" }
+staccana-snapshot-fork = { path = "../tools/snapshot-fork" }
+staccana-genesis-emit = { path = "../tools/genesis-emit" }
+staccana-bridge-cli = { path = "../tools/bridge-cli" }
+staccana-federation-attestor = { path = "../tools/federation-attestor" }
+solana-program = { workspace = true }
+solana-sdk = "2"
+serde = { workspace = true }
+anyhow = { workspace = true }
+serde_json = "1"
+proptest = "1"
+# NOTE: staccana-bridge and staccana-secret-pump are NOT direct deps here. Anchor 0.30's
+# transitive spl-pod brings in a different solana-program version that conflicts with the
+# workspace's solana-program v2. Bridge/pump cross-crate tests live in their own crates'
+# tests/ directories (programs/bridge/tests/, programs/secret-pump/tests/) where the
+# dep tree is internally consistent. SPEC byte conformance — pinned independently in each
+# crate — is what enforces cross-crate consistency.

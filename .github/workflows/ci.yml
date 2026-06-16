@@ -1,0 +1,153 @@
+name: CI
+
+on:
+  push:
+    branches: [staccana, main]
+  pull_request:
+    branches: [staccana, main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The Anchor-free workspace stack — cheap, fast, the source of truth that nothing has
+  # regressed on the v2-stack side. Runs on every push; merge-blocking.
+  v2-stack:
+    name: v2-stack (matcher + genesis + lazy-claim + tools + tests)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry + git + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: cargo-v2-stack-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-v2-stack-${{ runner.os }}-
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+      - name: cargo check (v2-stack crates)
+        run: |
+          cargo check \
+            -p staccana-matcher \
+            -p staccana-genesis \
+            -p staccana-lazy-claim \
+            -p staccana-snapshot-fork \
+            -p staccana-genesis-emit \
+            -p staccana-claim-cli \
+            -p staccana-bridge-cli \
+            -p staccana-federation-attestor \
+            -p staccana-integration-tests
+
+      - name: cargo test (v2-stack crates)
+        run: |
+          cargo test --release \
+            -p staccana-matcher \
+            -p staccana-genesis \
+            -p staccana-lazy-claim \
+            -p staccana-snapshot-fork \
+            -p staccana-genesis-emit \
+            -p staccana-claim-cli \
+            -p staccana-bridge-cli \
+            -p staccana-federation-attestor \
+            -p staccana-integration-tests
+
+      - name: cargo clippy (lint, warn-only)
+        run: |
+          cargo clippy \
+            -p staccana-matcher \
+            -p staccana-genesis \
+            -p staccana-lazy-claim \
+            -- -W clippy::all || true
+        # warn-only at v0; tighten to -D once the Anchor migration lands and the
+        # integration drift has settled.
+
+  # The Anchor stack. Currently checked in isolation per the dep-graph note in the
+  # workspace Cargo.toml. Once the Anchor 0.30 → 1.x upgrade lands (tracked as Phase 5.5
+  # in docs/ROADMAP.md), these jobs collapse into v2-stack.
+  anchor-stack:
+    name: anchor-stack (bridge + secret-pump)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: cargo-anchor-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-anchor-${{ runner.os }}-
+
+      - name: cargo check (bridge in isolation)
+        run: cargo check -p staccana-bridge
+
+      - name: cargo check (secret-pump in isolation)
+        run: cargo check -p staccana-secret-pump
+
+      # cargo test on the Anchor crates runs the in-source unit tests (#[cfg(test)] mod);
+      # tests/ integration test targets are blocked by the same dep conflict and won't run
+      # until v1.1.
+      - name: cargo test (bridge unit tests)
+        run: cargo test -p staccana-bridge --lib
+
+      - name: cargo test (secret-pump unit tests)
+        run: cargo test -p staccana-secret-pump --lib
+
+  # E2E suite — solana-program-test based, in-process BanksClient. Heavier dep tree
+  # (pulls solana-runtime + banks-client). Separate job so v2-stack failures surface fast.
+  e2e:
+    name: e2e (solana-program-test)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: cargo-e2e-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-e2e-${{ runner.os }}-
+
+      - name: cargo check (e2e-tests)
+        run: cargo check -p staccana-e2e-tests --tests
+
+      - name: cargo test (e2e-tests)
+        run: cargo test -p staccana-e2e-tests --release

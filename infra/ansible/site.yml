@@ -1,0 +1,116 @@
+# Top-level Ansible playbook for staccana infra bootstrap.
+# Usage:
+#   ansible-playbook -i inventory.yml site.yml --limit val-us-west
+#   ansible-playbook -i inventory.yml site.yml --limit validators
+#   ansible-playbook -i inventory.yml site.yml --tags update
+
+- name: Bootstrap a fresh staccana box
+  hosts: all
+  become: true
+  tags: bootstrap
+  tasks:
+    - name: Clone staccana repo
+      ansible.builtin.git:
+        repo: "{{ staccana_repo_url }}"
+        dest: "{{ staccana_install_dir }}"
+        version: "{{ staccana_branch }}"
+        force: yes
+
+    - name: Run bootstrap script (system prep + Solana CLI + Rust + sysctls + ulimits)
+      ansible.builtin.shell: bash {{ staccana_install_dir }}/infra/scripts/00-bootstrap-box.sh
+      args:
+        chdir: "{{ staccana_install_dir }}"
+      environment:
+        NVME_DEVICE: "{{ ledger_nvme | default('/dev/nvme1n1') }}"
+
+- name: Install validator on validator boxes
+  hosts: validators
+  become: true
+  tags: validator
+  tasks:
+    - name: Install systemd unit for validator
+      ansible.builtin.copy:
+        src: "{{ staccana_install_dir }}/infra/systemd/staccana-validator.service"
+        dest: /etc/systemd/system/staccana-validator.service
+        remote_src: yes
+
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    # Genesis pull + ledger init are one-time per chain genesis. Don't auto-run.
+
+- name: Install RPC on rpc boxes
+  hosts: rpcs
+  become: true
+  tags: rpc
+  tasks:
+    - name: Open RPC port for RPC-role boxes only
+      ansible.builtin.command: ufw allow 8899/tcp comment 'staccana RPC'
+
+    # Validator binary runs in --no-voting mode for RPC. Same systemd unit, different
+    # ExecStart override.
+    - name: Install RPC-mode systemd override
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/staccana-validator.service.d/rpc-mode.conf
+        content: |
+          [Service]
+          ExecStart=
+          ExecStart=/usr/local/bin/agave-validator \
+            --identity /etc/staccana/keys/identity.json \
+            --no-voting \
+            --rpc-port 8899 \
+            --rpc-bind-address 0.0.0.0 \
+            --full-rpc-api \
+            --enable-rpc-transaction-history \
+            --ledger /var/lib/staccana/ledger \
+            --accounts /var/lib/staccana/accounts
+        force: yes
+
+- name: Install federation attestor on attestor boxes
+  hosts: attestors
+  become: true
+  tags: attestor
+  tasks:
+    - name: Install systemd unit for attestor
+      ansible.builtin.copy:
+        src: "{{ staccana_install_dir }}/infra/systemd/staccana-attestor.service"
+        dest: /etc/systemd/system/staccana-attestor.service
+        remote_src: yes
+
+    - name: Templated attestor config
+      ansible.builtin.copy:
+        dest: /etc/staccana/attestor.toml
+        content: |
+          member_index = {{ federation_member_index }}
+          mainnet_rpc = "https://api.mainnet-beta.solana.com"
+          staccana_rpc = "http://val-us-west.internal.mp.fun:8899"
+          peer_urls = [
+            "http://attestor-0.internal.mp.fun:9090",
+            # ... other signers added once they're online
+          ]
+        force: yes
+
+- name: Update existing staccana install (binary refresh)
+  hosts: all
+  become: true
+  tags: update
+  tasks:
+    - name: Pull latest staccana
+      ansible.builtin.git:
+        repo: "{{ staccana_repo_url }}"
+        dest: "{{ staccana_install_dir }}"
+        version: "{{ staccana_branch }}"
+        force: yes
+
+    - name: Restart validator (validators only)
+      when: staccana_role == "validator"
+      ansible.builtin.systemd:
+        name: staccana-validator
+        state: restarted
+
+    - name: Restart attestor (attestors only)
+      when: staccana_role == "attestor"
+      ansible.builtin.systemd:
+        name: staccana-attestor
+        state: restarted

@@ -1,0 +1,27 @@
+[package]
+name = "staccana-bridge-init"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "One-shot init for the Staccana bridge program's per-asset PDAs (AssetConfig, RatioState, NonceOutCounter, FederationSet) via the `register_asset` ix."
+
+[[bin]]
+name = "staccana-bridge-init"
+path = "src/main.rs"
+
+[lib]
+name = "staccana_bridge_init"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+solana-client = "2"
+solana-sdk = "2"
+solana-program = { workspace = true }
+sha2 = "0.10"
+borsh = { version = "1", features = ["derive"] }
+serde = { workspace = true }
+serde_json = "1"
+hex = "0.4"

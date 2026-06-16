@@ -47,3 +47,8 @@
 # .claude/ = local worktrees + scheduler lock; .codex-whirlpools/ = local tooling state
 /.claude/
 /.codex-whirlpools/
+
+# explorer/ = customized solana-labs/explorer fork in a messy local state: HEAD commit lives on
+# NO remote + ~201 uncommitted changes. Excluded so it isn't re-added as a broken gitlink.
+# To ship it later: commit + push explorer to its own repo, then `git submodule add <url> explorer`.
+/explorer

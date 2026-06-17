@@ -18,7 +18,7 @@ staccana-claim-cli = { path = "../tools/claim-cli" }
 staccana-snapshot-fork = { path = "../tools/snapshot-fork" }
 staccana-genesis-emit = { path = "../tools/genesis-emit" }
 solana-program = { workspace = true }
-solana-sdk = "2"
+solana-sdk = "4"
 serde = { workspace = true }
 anyhow = { workspace = true }
 serde_json = "1"

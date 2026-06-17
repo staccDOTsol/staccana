@@ -25,16 +25,16 @@ staccana-lazy-claim = { path = "../../programs/lazy-claim", default-features = f
 # heavy ones) — `solana-genesis-config` carries the GenesisConfig type plus
 # bincode-backed `write` / `load`, which is all we need to produce a validator-readable
 # `genesis.bin`.
-solana-genesis-config = { version = "2", features = ["serde"] }
-solana-account = { version = "2", features = ["bincode", "serde"] }
-solana-pubkey = { version = "2", features = ["serde", "std"] }
-solana-keypair = "2"
-solana-signer = "2"
-solana-hash = { version = "2", features = ["serde"] }
-solana-cluster-type = { version = "2", features = ["serde"] }
-solana-fee-calculator = { version = "2", features = ["serde"] }
-solana-inflation = { version = "2", features = ["serde"] }
-solana-feature-gate-interface = { version = "2", features = ["bincode"] }
+solana-genesis-config = { version = "3", features = ["serde"] }
+solana-account = { version = "3", features = ["bincode", "serde"] }
+solana-pubkey = { version = "4", features = ["serde", "std"] }
+solana-keypair = "3"
+solana-signer = "3"
+solana-hash = { version = "4", features = ["serde"] }
+solana-cluster-type = { version = "3", features = ["serde"] }
+solana-fee-calculator = { version = "3", features = ["serde"] }
+solana-inflation = { version = "3", features = ["serde"] }
+solana-feature-gate-interface = { version = "3", features = ["bincode"] }
 # Lets us iterate every runtime feature gate the agave validator knows about
 # so we can activate them all at slot 0 (mirrors `solana-test-validator`'s
 # behavior). Without this, core-BPF programs from current mainnet hit
@@ -42,8 +42,8 @@ solana-feature-gate-interface = { version = "2", features = ["bincode"] }
 # behind features our cluster never flipped on. agave-feature-set 2.x is
 # version-aligned with our other 2.x deps; bump in lockstep with agave.
 agave-feature-set = "2"
-solana-sdk-ids = "2"
-solana-rent = { version = "2", features = ["serde"] }
+solana-sdk-ids = "3"
+solana-rent = { version = "4", features = ["serde"] }
 # Lets us set EpochSchedule explicitly in genesis. The default schedule
 # (slots_per_epoch=432_000, warmup=true) gates stake activation through the
 # warmup curve — meaning in epoch 0 only the bootstrap-validator stake counts
@@ -52,8 +52,8 @@ solana-rent = { version = "2", features = ["serde"] }
 # slots and then stalls because no other validator is treated as a leader.
 # Setting warmup=false short-circuits warmup so all 4 baked stakes
 # participate in the slot-0 leader schedule.
-solana-epoch-schedule = "2"
-solana-loader-v3-interface = { version = "3", features = ["serde", "bincode"] }
+solana-epoch-schedule = "3"
+solana-loader-v3-interface = { version = "6", features = ["serde", "bincode"] }
 # Vote + stake program crates: needed to materialize a fully-initialized vote
 # account + delegated stake account at slot 0 so the runtime's `Bank::new_with_paths`
 # doesn't panic with "no staked nodes exist" while bootstrapping the bank from
@@ -67,8 +67,8 @@ solana-loader-v3-interface = { version = "3", features = ["serde", "bincode"] }
 # `default-features = false` on `solana-vote-program` strips the `metrics` feature,
 # which would otherwise pull in `solana-metrics` (heavy network deps); the
 # constructors we call don't touch metrics.
-solana-vote-program = { version = "2", default-features = false }
-solana-stake-program = "2"
+solana-vote-program = { version = "3", default-features = false }
+solana-stake-program = "5"
 # `solana-ledger` carries `blockstore::create_new_ledger`, which seeds slot 0 of the
 # blockstore with PoH tick entries derived from the genesis hash. Without this, a
 # fresh validator boot panics with `InvalidBlock(Incomplete)` at `process_bank_0` —
@@ -86,7 +86,7 @@ solana-program = { workspace = true }
 # + the ConfidentialTransferMint extension TLV layout so we can produce a
 # binary-identical mint account at slot 0.
 spl-token-2022 = { version = "8", default-features = false, features = ["no-entrypoint"] }
-spl-pod = "0.5"
+spl-pod = "0.7"
 
 # Auxiliary.
 clap = { version = "4", features = ["derive"] }
@@ -102,5 +102,5 @@ tempfile = "3"
 # the layout of vote and stake accounts the bake produces. Both are already in the
 # build graph via `solana-vote-program` / `solana-stake-program`; declaring them here
 # makes them `use`-able directly from test code.
-solana-vote-interface = { version = "2", features = ["bincode"] }
-solana-stake-interface = { version = "2", features = ["bincode"] }
+solana-vote-interface = { version = "4", features = ["bincode"] }
+solana-stake-interface = { version = "4", features = ["bincode"] }

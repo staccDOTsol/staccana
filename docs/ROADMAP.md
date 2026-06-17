@@ -16,19 +16,17 @@ Target: 2026-05-16. The honest read of what fits in 14 days vs. what slips to v1
 - CTE feature gates active at slot 0
 - Treasury PDA pre-credited from partition
 - Single Hetzner validator booting from genesis with classic defaults
-- Bridge programs deployed with **placeholder federation** (team-controlled keys, capped TVL — soft-launch trust posture)
-- secret-pump deployed (no Raydium graduation pipeline yet)
-- One semi-public RPC + minimal block explorer + claim/bridge/pump frontend
+- secret-pump deployed (SOL-quoted; no Raydium graduation pipeline yet)
+- CEX listing as the on/off-ramp (no bridge)
+- One semi-public RPC + minimal block explorer + claim/pump frontend
 - E2e flows green on devnet between now and cutover
 
 **Slips to v1.1 (post-`mainnet-sigma`):**
 - **FBA enforcement at consensus** — banking-stage hook + replay verifier + slashing in the Agave fork. Multi-week eng lift; the matcher library is ready but actual in-validator wiring is not 14-day work.
-- **secret-ray** — forked Raydium AMM v4 / CLMM / CPMM + router. Real Raydium fork is weeks.
-- **Real 5-of-9 federation onboarding** — needs independent signers contracted, signing key ceremonies, operational runbook.
-- **Treasury productive position** — depends on bridge being live with non-trivial volume; bootstrap allocation only at v1.0.
-- **Validator subsidy distribution program** — depends on the productive position existing.
+- **secret-ray** — forked Raydium AMM v4 / CLMM / CPMM + router, plus the graduation migrator. secret-pump graduation is event-driven and latches, so this is off the genesis critical path — but it must land before the first curve hits 85 SOL.
+- **On-chain drawdown distributor** — validators are hand-paid the treasury drawdown from the governance multisig at launch; a thin transfer-scheduler (no staking, no yield) follows.
 
-So `mainnet-sigma` ships as: "Solana fork, secrecy live by default, classic v1 fee model, treasury-funded ops, soft-launch bridge, secret-pump live. FBA enforcement and secret-ray coming in v1.1." The narrative stays intact; the consensus-rule moat lands a few weeks behind the secrecy moat.
+So `mainnet-sigma` ships as: "Solana fork, secrecy live by default, classic v1 fee model, treasury-funded ops (drawdown, no inflation/yield), CEX-listed (no bridge), secret-pump live. FBA enforcement and secret-ray coming in v1.1." The narrative stays intact; the consensus-rule moat lands a few weeks behind the secrecy moat.
 
 Devnet between now and 2026-05-16 is where everything in the "fits" bucket gets exercised end-to-end, and where the v1.1 work ALSO matures so it can ship 4-6 weeks after `mainnet-sigma`.
 
@@ -38,15 +36,14 @@ Devnet between now and 2026-05-16 is where everything in the "fits" bucket gets 
 - [x] Matcher library: per-mint AMM-anchored uniform clearing price with deterministic-replay tests
 - [x] Genesis library: partition rule, treasury accumulator, Merkle root construction, classic defaults port
 - [x] Lazy-claim program (native solana-program; 22 unit tests; correct end-to-end flow including marker-PDA init via system_program CPI per discovery in e2e harness)
-- [x] Bridge program (Anchor 0.30 + Token-22 interface; 27 unit tests on attestation helpers + R math)
+- [x] ~~Bridge program~~ — **removed** (federated bridge cut before audit; see `docs/AUDIT_SCOPE.md`)
 - [x] secret-pump (Anchor 0.30 + Token-22 CTE; 20 unit tests on bonding curve math + graduation latching)
 - [x] snapshot-fork tool (mock + Solana stub with detailed integration TODO; 20 tests)
 - [x] genesis-emit tool (compose pipeline; 12 tests)
 - [x] claim-cli (proof construction + ix builders; 19 tests)
-- [x] bridge-cli (deposit/burn ix builders + ratio reads; 40 tests)
-- [x] federation-attestor daemon (attestation signing + R update publishing; 28 tests)
-- [x] integration-tests crate (61 functions + 736 proptest cases — cross-crate flows + SPEC byte conformance + property invariants + Merkle consistency)
-- [x] e2e-tests crate (solana-program-test in-process chain simulation; 7 real e2e tests + 1 stub)
+- [x] ~~bridge-cli, federation-attestor daemon~~ — **removed** with the bridge
+- [x] integration-tests crate (cross-crate flows + SPEC byte conformance + property invariants + Merkle consistency; bridge/federation conformance dropped)
+- [x] e2e-tests crate (solana-program-test in-process chain simulation; real e2e tests for claim/genesis/matcher)
 - [x] Per-crate `tests/` integration files (43 tests across matcher + genesis)
 - [x] Workspace `cargo check` green on the Anchor-free crates (matcher + genesis + lazy-claim)
 
@@ -73,17 +70,18 @@ Devnet between now and 2026-05-16 is where everything in the "fits" bucket gets 
 
 **Shippable as**: "MEV-proof at the validator layer, required by consensus."
 
-## Phase 3: Multi-asset bridge + treasury productive position (4-6 weeks, can run in parallel with Phase 2)
+## Phase 3: ~~Multi-asset bridge + treasury productive position~~ — REMOVED
 
-- [ ] Mainnet-side bridge program: per-asset vault, deposit/withdrawal, federation attestation verification
-- [ ] Staccana-side bridge program: stSOL (pSYRUP-backed) + ssUSDC (USDC-backed) at minimum, ratio R updates per asset
-- [ ] All bridge mints are Token-22 with Confidential Transfer extension active by default
-- [ ] Federation: 5-of-9 multi-sig setup, attestation client publishing R updates per asset
-- [ ] Frontend: deposit / withdraw / claim flows with current R per asset visible
-- [ ] **Treasury staking position**: deposit `TREASURY_PRODUCTIVE_BPS` (80%) of genesis treasury into pSYRUP via the bridge (treasury PDA is the depositor). This is the validator-subsidy yield source per SPEC §7.2.
-- [ ] Subsidy distribution program: per-epoch yield read + pro-rata distribution to active validators by `(uptime × stake × votes)`
+The federated bridge and the treasury productive position were cut before audit. No bridge,
+no yield. What this phase used to carry, and its replacement:
 
-**Shippable as**: "stSOL and ssUSDC live; non-1:1 accruing peg backed by anti-MEV staking yield (stSOL) and mainnet USDC reserves (ssUSDC). Treasury productive position bootstrapped; validator subsidy stream live."
+- **User on/off-ramp** → **CEX listings** (exchange custodies + runs a node; off our audit surface).
+- **On-chain stable quote (ssUSDC)** → none at genesis; SOL-quoted pools. Court native Circle/Tether later.
+- **Native-SOL oracle** → **permissionless Switchboard feed pointed at the CEX**.
+- **Validator funding** → **treasury principal drawdown** (no staking, no yield). Replacement work:
+  - [ ] On-chain drawdown distributor: per-epoch fixed transfer from the treasury PDA, pro-rata to active validators by `(uptime × stake × votes)`. Until it ships, the multisig hand-distributes.
+
+**Shippable as**: "CEX-listed on/off-ramp; validators paid by transparent treasury drawdown. No bridge to apologize for."
 
 ## Phase 4: secret-pump (4-6 weeks)
 
@@ -100,25 +98,24 @@ Devnet between now and 2026-05-16 is where everything in the "fits" bucket gets 
 - [ ] Block explorer (fork solana-explorer)
 - [ ] Wallet integration docs (Phantom / Solflare / Backpack as custom cluster)
 - [ ] Token list bootstrap
-- [ ] Documentation site (claim / bridge / swap / launch)
+- [ ] Documentation site (claim / swap / launch)
 
 ## Phase 5.5: v1.1 dep-graph fix — Anchor 0.30 → 1.x upgrade
 
+> Note: `programs/bridge` and `programs/validator-subsidy` were **removed** after this
+> upgrade (bridge cut before audit). The Anchor-1.x upgrade details below are retained as
+> history but now apply only to `secret-pump` and `megadrop`.
+
 - [x] Workspace-wide `cargo check` (the headline blocker; passes in a single invocation)
-- [x] `programs/bridge`, `programs/secret-pump`, `programs/validator-subsidy` upgraded to
-      `anchor-lang = "1"` / `anchor-spl = "1"` (which use `solana-program 2.x` natively
-      via the split `spl-token-2022-interface` crate)
+- [x] `programs/secret-pump` and `programs/megadrop` on `anchor-lang = "1"` / `anchor-spl = "1"`
+      (which use `solana-program 2.x` natively via the split `spl-token-2022-interface` crate)
 - [x] Anchor account-discriminator algorithm preserved (`sha256("account:Name")[0..8]`),
-      so the on-chain wire format for `RatioState`, `AssetConfig`, etc. is byte-identical
-- [x] All in-tree unit tests pass (`cargo test -p staccana-bridge --lib`,
-      `cargo test -p staccana-secret-pump --lib`,
-      `cargo test -p staccana-validator-subsidy --lib`)
+      so the on-chain wire format is byte-identical
+- [x] In-tree unit tests pass (`cargo test -p staccana-secret-pump --lib`)
 
 Follow-ups (future work, no longer blocking the workspace):
 
-- [ ] `programs/bridge` as a path-dep of `integration-tests` (cross-crate consistency tests)
-- [ ] `processor!(staccana_bridge::entry)` loading inside `solana-program-test` for full e2e bridge BanksClient tests (currently stubbed in `e2e-tests/tests/e2e_bridge.rs`)
-- [ ] `programs/secret-pump` as a path-dep of `integration-tests`
+- [ ] `programs/secret-pump` as a path-dep of `integration-tests` (cross-crate consistency tests)
 
 ### Breaking changes hit during the upgrade
 
@@ -168,11 +165,9 @@ Each is a real ZK design problem, not a port. Sequence by demand.
 
 - [ ] Multi-validator testnet
 - [ ] Public validator onboarding
-- [ ] Federation expansion / replacement of multi-sig with TowerBFT-signature verification on the bridge
 
 ## Out of scope (intentionally)
 
 - **Encrypted mempool / threshold decryption** — overkill for the threat model. We care about atomic sandwich + Jito-style extraction, not all frontrun. The FBA kills the sandwich without paying the latency / DKG complexity cost.
-- **Light-client bridge** — Solana doesn't have great primitives. The federated model is honest about its trust assumption.
+- **Any cross-chain bridge** — no federated bridge, no light-client bridge. Value moves in/out via CEX listings; the exchange takes the custody/trust assumption. Non-SOL assets arrive as native issuance (Circle/Tether) once volume warrants, not as bridge-mints or snapshot carryover.
 - **Public RPC operator** — one semi-public box at launch is the line. Operators who want public RPC run their own.
-- **1:1 mainnet token wrapping** — staccana doesn't recognize mainnet protocols. USDC, USDT, every other token mint must come over via bridge-mint, not snapshot.

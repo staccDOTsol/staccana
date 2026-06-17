@@ -23,8 +23,6 @@
 //!                                build_genesis → compose → claim every claimable account
 //!                                → assert SOL conservation invariant I1.
 //! - `e2e_matcher.rs`           — pure-Rust FBA round across three base mints.
-//! - `e2e_bridge.rs`            — best-effort in-process Anchor load; stubs out cleanly
-//!                                if `processor!(staccana_bridge::entry)` won't load.
 
 pub mod harness;
 pub mod synthetic;

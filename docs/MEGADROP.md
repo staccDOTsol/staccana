@@ -110,7 +110,7 @@ weight(h) = WEIGHT_BASED_STACC_0 * nfts_held_in_based_stacc_0(h)
 
 Per-holder allocation: `(weight(h) / sum_of_all_weights) * TOTAL_MEGADROP_SOL`. This is a one-shot computation done by the snapshot tool at slot `S_megadrop`; the result is committed in the Merkle root and never recomputed.
 
-Budget fits cleanly into the validator-subsidy reservation: 30M megadrop + 80% productive position leaves ~10-15% of treasury for ops, insurance, AMM seeding, grants. Comfortable.
+Budget fits cleanly against the treasury: 30M megadrop is a small slice of the ~485M treasury, leaving the bulk for the validator-subsidy drawdown plus ops, AMM seeding, and grants. Comfortable.
 
 ## Vesting timeline
 

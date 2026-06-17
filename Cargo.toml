@@ -6,23 +6,14 @@ members = [
     "genesis",
     "programs/agent-faucet",
     "programs/lazy-claim",
-    "programs/bridge",
-    "programs/bridge-vault",
     "programs/secret-pump",
-    "programs/validator-subsidy",
     "programs/megadrop",
     "tools/snapshot-fork",
     "tools/genesis-emit",
     "tools/genesis-bake",
     "tools/claim-cli",
-    "tools/bridge-cli",
-    "tools/bridge-init",
-    "tools/bridge-vault-init",
     "tools/megadrop-init",
-    "tools/subsidy-cli",
-    "tools/wssol-init",
     "tools/agent-mail",
-    "tools/federation-attestor",
     "tools/megadrop-merkle",
     "tools/megadrop-snapshot",
     "integration-tests",
@@ -59,9 +50,13 @@ codegen-units = 1
 # crates-io source — it requires a different source like git or path. The
 # Cargo.lock pin is enough since the SBF build reads --frozen-style.)
 
-# Dep-graph note (resolved as of Phase 5.5):
-# `programs/bridge`, `programs/secret-pump`, and `programs/validator-subsidy` are on
-# `anchor-lang = "1"` / `anchor-spl = "1"`, which use `solana-program 2.x` natively
-# (via the split `spl-token-2022-interface` crate). Workspace-wide `cargo check` now
-# resolves a single coherent solana-program / spl-token-2022 lockfile entry and builds
-# every crate in one invocation.
+# Dep-graph note:
+# `programs/secret-pump` and `programs/megadrop` are on `anchor-lang = "1"` /
+# `anchor-spl = "1"`, which use `solana-program 2.x` natively (via the split
+# `spl-token-2022-interface` crate). Workspace-wide `cargo check` resolves a single
+# coherent solana-program / spl-token-2022 lockfile entry and builds every crate in
+# one invocation.
+#
+# Bridge removed: the federated multi-asset bridge (programs/bridge, bridge-vault) and
+# validator-subsidy (its yield engine) were deleted — no bridge, no yield. User on/off-ramp
+# is CEX listings; validators are paid by treasury principal drawdown. See docs/AUDIT_SCOPE.md.

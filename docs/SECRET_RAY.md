@@ -58,7 +58,7 @@ Secret-ray's swap entry point needs to accept a "force this clearing price" mode
 
 ## Token-22 + CTE compatibility
 
-Vanilla Raydium uses SPL Token. Secret-ray must support Token-22 with the Confidential Transfer extension (since bridge-minted assets like stSOL and ssUSDC are CTE-active).
+Vanilla Raydium uses SPL Token. Secret-ray must support Token-22 with the Confidential Transfer extension (secret-pump tokens are Token-22/CTE, and pools are SOL-quoted — there are no bridge-minted stable assets).
 
 - Pool LP tokens: stay vanilla SPL Token (LP positions are not confidential — the LP is the pool, identifiable from the PDA).
 - Pool reserve sides: support Token-22. The CPI to deposit/withdraw needs `spl-token-2022` interface.
@@ -78,7 +78,7 @@ This adds real complexity. Plan: support vanilla Token first (mainnet-sigma + 4 
 
 ## Risks
 
-- **Anchor version compatibility**: Raydium upstream uses Anchor 0.30 (same as our bridge + secret-pump). v1.1 plans to upgrade to Anchor 1.x — secret-ray will need to be on the same version as the rest of the workspace.
+- **Anchor version compatibility**: Raydium upstream uses Anchor 0.30 (same as secret-pump). v1.1 plans to upgrade to Anchor 1.x — secret-ray will need to be on the same version as the rest of the workspace.
 - **Audit surface**: forking Raydium AMM math is forking audited code; any change to the math (even just adding the `force_clearing_price` path) needs a new audit pass.
 - **CLMM concentrated liquidity**: harder to fit FBA semantics than CPMM. CLMM's tick math may not cleanly support a "clearing price" concept. Mitigation: ship CPMM first, iterate on CLMM.
 - **Liquidity bootstrap**: secret-ray pools need initial liquidity. Treasury seeds the first pools (per SPEC §7.1); subsequent LPs come from secret-pump graduations + organic.
@@ -88,7 +88,7 @@ This adds real complexity. Plan: support vanilla Token first (mainnet-sigma + 4 
 `secret-ray` is "shipped" when:
 
 - All four programs deployed on staccana
-- Treasury-seeded pools live for: SOL/stSOL, SOL/ssUSDC, stSOL/ssUSDC
+- Treasury-seeded SOL-quoted pools live (no stable assets at genesis; native Circle/Tether issuance courted once volume warrants)
 - secret-pump graduates the first launchpad token into a secret-ray pool
 - Matcher's `MockAmm` replaced with `SecretRayCpmmAdapter` in integration-tests
 - e2e test demonstrates: 10 swap intents → matcher → matched + residual → secret-ray executes residual at clearing price → assertions hold

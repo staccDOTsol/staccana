@@ -14,10 +14,6 @@ path = "src/lib.rs"
 staccana-genesis = { path = "../genesis" }
 staccana-matcher = { path = "../matcher" }
 staccana-lazy-claim = { path = "../programs/lazy-claim", default-features = false }
-# Bridge dependency intentionally NOT pulled in — the e2e_bridge.rs test is stubbed
-# pending the .so build pipeline (see file header for v1 path). Re-add as
-# `staccana-bridge = { path = "../programs/bridge", default-features = false }` when
-# the in-process Anchor load is wired up.
 staccana-claim-cli = { path = "../tools/claim-cli" }
 staccana-snapshot-fork = { path = "../tools/snapshot-fork" }
 staccana-genesis-emit = { path = "../tools/genesis-emit" }

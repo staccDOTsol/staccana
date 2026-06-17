@@ -88,15 +88,14 @@ use staccana_genesis_emit::ComposedGenesis;
 
 pub use config::{assemble_genesis_config, BakeSummary};
 pub use pdas::{
-    lazy_claim_config_pda, treasury_pda, BRIDGE_PROGRAM_ID, LAZY_CLAIM_PROGRAM_ID,
-    LAZY_CLAIM_CONFIG_SEED, MEGADROP_PROGRAM_ID, SECRET_PUMP_PROGRAM_ID, TREASURY_SEED,
-    VALIDATOR_SUBSIDY_PROGRAM_ID,
+    lazy_claim_config_pda, treasury_pda, LAZY_CLAIM_PROGRAM_ID, LAZY_CLAIM_CONFIG_SEED,
+    MEGADROP_PROGRAM_ID, SECRET_PUMP_PROGRAM_ID, TREASURY_SEED,
 };
 
 /// Default lamport allocation for each of the bootstrap-validator-related accounts
 /// (identity, vote, stake, faucet). Bumped from 1 SOL → 1000 SOL so the validator
-/// identities have enough lamports to pay the rent for deploying our 5 programs
-/// (~8 SOL total across all .so binaries; bridge alone needs ~2.3 SOL).
+/// identities have enough lamports to pay the rent for deploying our programs
+/// (lazy-claim, secret-pump, megadrop) plus the SPL stack.
 pub const BOOTSTRAP_LAMPORTS: u64 = 1_000_000_000_000;
 
 /// All inputs required to bake the genesis. Assembled by [`load_inputs_from_paths`] (or
@@ -138,9 +137,7 @@ pub struct BakeInputs {
     /// `agave-validator` doesn't have an equivalent flag.
     pub additional_validators: Vec<AdditionalBootstrapValidator>,
     pub lazy_claim_so: Option<PathBuf>,
-    pub bridge_so: Option<PathBuf>,
     pub secret_pump_so: Option<PathBuf>,
-    pub validator_subsidy_so: Option<PathBuf>,
     pub megadrop_so: Option<PathBuf>,
     /// SPL stack baked at canonical mainnet pubkeys (sidesteps Anchor's
     /// hardcoded program-id checks in `Program<'info, Token2022>` etc.).
@@ -243,9 +240,7 @@ pub fn load_inputs_from_paths(
     cluster_type: ClusterType,
     additional_validator_keypair_triplets: Vec<(PathBuf, PathBuf, PathBuf)>,
     lazy_claim_so: Option<PathBuf>,
-    bridge_so: Option<PathBuf>,
     secret_pump_so: Option<PathBuf>,
-    validator_subsidy_so: Option<PathBuf>,
     megadrop_so: Option<PathBuf>,
     spl_token_so: Option<PathBuf>,
     spl_token_2022_so: Option<PathBuf>,
@@ -273,9 +268,7 @@ pub fn load_inputs_from_paths(
         cluster_type,
         additional_validators,
         lazy_claim_so,
-        bridge_so,
         secret_pump_so,
-        validator_subsidy_so,
         megadrop_so,
         spl_token_so,
         spl_token_2022_so,

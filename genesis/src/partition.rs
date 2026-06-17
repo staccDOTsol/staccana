@@ -14,9 +14,9 @@
 //! * Mainnet protocols don't carry over to staccana — there is no Token program state, no
 //!   Stake program state, no DeFi positions, no NFT metadata that has any meaning on a
 //!   chain that doesn't share validators or operations with mainnet.
-//! * The bridge handles ongoing flow of value (multi-asset, see `docs/BRIDGE.md`); the
-//!   genesis partition handles only the question "does your raw mainnet SOL balance carry
-//!   over."
+//! * Ongoing flow of value in/out is handled by CEX listings (there is no bridge — see
+//!   `docs/BRIDGE.md` removal note); the genesis partition handles only the question
+//!   "does your raw mainnet SOL balance carry over."
 //!
 //! Approximate effect on mainnet's ~600M SOL supply:
 //! * ~100-150M SOL claimable (raw EOA balances)

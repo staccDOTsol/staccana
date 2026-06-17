@@ -10,20 +10,14 @@
 //!                             multi-mint batches, residual flow, varied buyer/seller
 //!                             distributions.
 //! * `spec_conformance.rs`   — byte-exact wire-format assertions against `docs/SPEC.md`
-//!                             for the claim message (§4.2), `ClaimArgs` (§4.1), the
-//!                             ratio attestation (§5.3), and the SwapIntent canonical
-//!                             encoding (§6.1).
+//!                             for the claim message (§4.2), `ClaimArgs` (§4.1), and the
+//!                             SwapIntent canonical encoding (§6.1).
 //! * `merkle_consistency.rs` — Merkle tree built via `staccana-genesis` ↔ proof generated
 //!                             via `staccana-claim-cli` ↔ inclusion check via
 //!                             `staccana-lazy-claim` agree byte-for-byte.
 //! * `property_invariants.rs` — proptest-driven SPEC §8 invariants: I1 (genesis SOL
 //!                             conservation), I5 (matcher replay invariance), Merkle
 //!                             determinism, and treasury commutativity.
-//! * `bridge_flow_stub.rs`   — TODO stub: end-to-end bridge tests deferred until
-//!                             `programs/bridge/` lands. Commented-out test scaffolding
-//!                             documents the intended scenarios.
-//! * `secret_pump_stub.rs`   — TODO stub: same pattern, deferred until
-//!                             `programs/secret-pump/` lands.
 
 pub mod fixtures;
 pub mod mocks;

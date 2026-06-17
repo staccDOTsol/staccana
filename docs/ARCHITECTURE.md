@@ -12,7 +12,7 @@ A Solana fork where:
 
 ## Lineage
 
-Staccana = `solana-classic` v2.0.0. The v1 architecture (fixed-fee MEV deterrent, disabled inflation, 50% burn, single-validator-on-laptop docker image) shipped in May 2025 and accumulated 332 organic Docker pulls over a year of dormancy. v2 keeps the fee model + economic posture + distribution channel; replaces the deterrent-via-fees mechanism with structural anti-MEV at consensus; adds secrecy at genesis; adds a multi-asset bridge.
+Staccana = `solana-classic` v2.0.0. The v1 architecture (fixed-fee MEV deterrent, disabled inflation, 50% burn, single-validator-on-laptop docker image) shipped in May 2025 and accumulated 332 organic Docker pulls over a year of dormancy. v2 keeps the fee model + economic posture + distribution channel; replaces the deterrent-via-fees mechanism with structural anti-MEV at consensus; adds secrecy at genesis. **No bridge** — CEX listings are the on/off-ramp (custody risk lives with the exchange, off our audit surface).
 
 See `docs/LINEAGE.md`.
 
@@ -42,7 +42,7 @@ Approximate effect on mainnet's ~600M SOL supply:
 - ~100-150M SOL claimable (raw EOA balances)
 - ~400-500M SOL → treasury (staked, locked, in protocols)
 
-The bridge becomes the dominant path for the staked majority to enter staccana — drives bridge fee volume, grows the stSOL R ratio.
+The staked majority re-enters staccana by acquiring native SOL on a CEX (the listing is the on/off-ramp) plus claiming whatever raw-EOA balance they held. There is no bridge.
 
 ### Treasury
 
@@ -50,25 +50,24 @@ The lamports accumulated from the treasury partition are credited at slot 0 to a
 
 - Seed liquidity for secret-pump bonding curves
 - Initial pools for secret-ray (so launch isn't an empty AMM)
-- Bridge insurance fund
 - Project ops, grants
 - **Validator subsidy** — the load-bearing one (see below)
 
-#### Validator subsidy (since inflation is disabled)
+#### Validator subsidy (principal drawdown, since inflation is disabled)
 
 Inflation is disabled (classic v1 inheritance), the FBA structurally eliminates MEV revenue, and base fees are tiny at low TPS. Validators need an income source that doesn't depend on chain throughput, and that income shouldn't dilute SOL holders.
 
-The treasury solves this. Sized at ~400-500M SOL at genesis, staked productively (initially as pSYRUP via the bridge; long-term as staccana-native staking once a non-trivial validator set exists), it generates roughly:
+The treasury solves this by **direct principal drawdown** — there is no yield engine, no productive position, no mainnet staking. With inflation off, there is no yield to earn on-chain, and turning it back on (or running a mainnet staking position via a bridge) is exactly what we're avoiding. Instead the treasury simply spends down principal:
 
 ```
-500M SOL × 7% APY ≈ 35M SOL/year ≈ 96k SOL/day
+~485M SOL treasury ÷ ~96k SOL/day  ≈  13+ years of full subsidy from principal alone
 ```
 
-Far more than launch-TPS base fees can pay validators. The **yield** (NOT the principal) is distributed pro-rata to active validators each epoch, weighted by `(uptime × delegated-stake × votes-cast)`.
+That runway is far longer than the time it takes fee revenue (and eventually a non-trivial native validator set earning fees) to carry validation. The per-epoch drawdown is distributed pro-rata to active validators, weighted by `(uptime × delegated-stake × votes-cast)`.
 
-**Bootstrap window**: until the staking position has earned its first yield, a small reserved direct-allocation (`TREASURY_BOOTSTRAP_BPS = 200` of treasury per SPEC §7.3) funds validators directly for ~30 days. After that, yield-only.
+**At launch** the governance multisig hand-distributes the drawdown directly to the small validator set. A thin on-chain drawdown distributor is a fast-follow — it only schedules transfers out of the treasury PDA; it never stakes or earns.
 
-Net effect: staccana validators are paid from yield on capital the chain expropriated from dormant mainnet protocols. Non-dilutive, self-funding indefinitely, cleaner story than "we have inflation but less of it."
+Net effect: validators are paid out of capital the chain expropriated from dormant mainnet protocols, spent down over a decade-plus horizon. Non-dilutive (no new issuance), no bridge, no yield assumption to defend.
 
 ### Lazy claim
 
@@ -153,9 +152,11 @@ execution
 replay: re-derive matcher output from input set → invalid block on mismatch (slashable)
 ```
 
-## Bridge
+## No bridge
 
-Federated v1 with a **non-1:1 accruing peg**, multi-asset from day one (not stSOL only). Each supported asset has a mainnet vault holding yield-bearing backing and a corresponding Token-22 mint on staccana with the Confidential Transfer extension active by default. Detailed design in `docs/BRIDGE.md`.
+There is no cross-chain bridge. The federated multi-asset bridge (the old `docs/BRIDGE.md` design) was removed: a 5-of-9 federation that can drain a vault is the single worst audit liability, and it dragged in stSOL/ssUSDC/wSOL plus a yield engine the no-inflation posture doesn't want.
+
+Value moves in/out via **CEX listings** — the exchange custodies, runs a staccana node, and credits deposits/withdrawals. That puts custody risk on the exchange (their business, their audit) and off our scope. Native-SOL price for any on-chain consumer comes from a **permissionless Switchboard feed pointed at the CEX**, not an on-chain wSOL pool. secret-ray launch pools are **SOL-quoted** (no stable at genesis); court native Circle/Tether issuance once there's volume. See `docs/AUDIT_SCOPE.md` and `docs/BRIDGE.md` (now a removal note).
 
 ## Out-the-gate launch slate
 
@@ -164,15 +165,16 @@ What ships when the chain goes live:
 **Core (without these the chain doesn't function)**
 - Validator binary running from genesis (forked Agave, classic v1 patches inherited, FBA layered on)
 - Lazy-claim program with Merkle root + ed25519 verification + gas-exempt rule
-- Multi-asset bridge: stSOL (pSYRUP-backed) AND ssUSDC (mainnet-USDC-backed) at minimum
-- secret-ray (forked Raydium AMM/CLMM/CPMM + router)
-- secret-pump (confidential bonding-curve launchpad)
+- secret-pump (confidential bonding-curve launchpad, SOL-quoted)
 - One semi-public RPC endpoint (single Hetzner box at launch)
+
+**Gated fast-follow (before the first secret-pump curve graduates at 85 SOL)**
+- secret-ray (forked Raydium AMM/CLMM/CPMM + router) + the graduation migrator. Graduation only emits an event and latches the curve, so this is off the genesis critical path — but it must land before curve #1 graduates.
 
 **Within days of launch**
 - Block explorer (forked solscan or solana-explorer pointed at staccana RPC)
 - Wallet config docs (Phantom/Solflare/Backpack as custom Solana cluster)
-- Token list bootstrap (SOL, stSOL, ssUSDC; secret-pump tokens auto-register)
+- Token list bootstrap (SOL; secret-pump tokens auto-register)
 
 **Within weeks**
 - Token registry / metadata service for secret-ray pool display

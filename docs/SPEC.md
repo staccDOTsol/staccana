@@ -191,150 +191,9 @@ Rejection conditions (transaction is not gas-exempt):
 - Recipient already exists with non-zero lamports
 - Claimed-marker PDA already exists
 
-## 5. Bridge
+## 5. Bridge — REMOVED
 
-### 5.1 Per-asset configuration
-
-For each supported asset (stSOL, ssUSDC, ...):
-
-```
-struct AssetConfig {
-    asset_id: u32,                    // monotonic per-asset identifier
-    underlying_label: [u8; 32],       // human-readable label
-    mainnet_vault_program: [u8; 32],  // mainnet-side vault program
-    staccana_mint: [u8; 32],          // Token-22 mint with CTE active
-    decimals: u8,
-    mint_fee_bps: u16,
-    burn_fee_bps: u16,
-}
-```
-
-Stored in PDA `["asset", asset_id]`, registered via a `register_asset` ix gated by governance.
-
-### 5.2 Ratio R
-
-```
-R_q64[asset_id] = (vault_value_in_underlying * 2^64) / mint_supply
-```
-
-Stored per asset in PDA `["ratio", asset_id]`. Canonical on-chain account layout (45 bytes total — Anchor account):
-
-```
-offset  size  field                  notes
-─────── ───── ────────────────────── ──────────────────────────────
-   0      8   anchor_discriminator   sha256("account:RatioState")[0..8]
-   8      4   asset_id (u32 LE)      sanity field; PDA seeds bind too
-  12     16   r_q64 (u128 LE)        Q64.64 fixed-point ratio
-  28      8   last_published_slot    slot federation observed at
-  36      8   last_nonce             monotonic per asset; replay guard
-  44      1   bump                   PDA bump cache
-```
-
-`vault_value` and `mint_supply` are inputs to the `update_ratio` ix (see §5.3) but **not stored** — the program recomputes `r_q64` from them and discards the inputs. This is deliberate: trust-minimizes the federation by re-deriving R rather than storing what the federation claimed.
-
-### 5.3 Update-ratio attestation
-
-The federation publishes a signed message:
-
-```
-attestation = "STACCANA_RATIO_V1"
-           || asset_id.to_le_bytes()
-           || vault_value_in_underlying.to_le_bytes()
-           || mint_supply.to_le_bytes()
-           || slot.to_le_bytes()
-           || nonce.to_le_bytes()
-```
-
-`M`-of-`N` federation members sign. The bridge program verifies the signatures against the registered federation pubkey set, then:
-
-1. Asserts `slot >= last_published_slot[asset_id] + R_PUBLISH_INTERVAL_SLOTS`.
-2. Recomputes `R_q64` from the attested values.
-3. Updates the asset's `RatioState` PDA.
-
-### 5.4 Mint flow (mainnet → staccana)
-
-Off-chain: user deposits `X` underlying to the mainnet vault, vault stakes (or holds), federation observes and signs.
-
-The federation signs the following canonical message (32 bytes domain prefix + 76 bytes payload = 108 bytes total):
-
-```
-mint_message = b"STACCANA_MINT_V1"
-            || asset_id.to_le_bytes()           // 4 bytes
-            || value_after_fee.to_le_bytes()    // 8 bytes
-            || recipient                        // 32 bytes
-            || nonce.to_le_bytes()              // 8 bytes
-```
-
-Federation members sign this message with their ed25519 keypair. M-of-N signatures are submitted alongside the on-staccana `mint` ix. The bridge program reconstructs the same message from the ix args and verifies each signature against the registered federation pubkey set via the ed25519 precompile (Instructions sysvar inspection — same pattern as ratio attestation §5.3 and the lazy-claim flow §4).
-
-On staccana, user (or relayer) submits the `mint` ix:
-
-Accounts:
-
-| # | Role | Description |
-|---|---|---|
-| 0 | `[writable]` | Bridge program state |
-| 1 | `[writable]` | Staccana mint for `asset_id` |
-| 2 | `[writable]` | Recipient ATA on staccana |
-| 3 | `[]` | Federation pubkey set PDA |
-| 4 | `[]` | Asset ratio PDA `["ratio", asset_id]` |
-| 5 | `[writable]` | Nonce-consumed PDA `["nonce_in", asset_id, nonce]` |
-
-Instruction data:
-
-```
-struct MintArgs {
-    asset_id: u32,
-    value_after_fee: u64,                    // amount of underlying deposited net of mainnet fee
-    recipient: [u8; 32],
-    nonce: u64,
-    federation_signatures: [[u8; 64]; M],
-    federation_indices: [u8; M],             // indices into the federation pubkey set
-}
-```
-
-Effects:
-
-1. Verify M federation signatures against the registered set. Reject duplicates within `federation_indices`.
-2. Read `R_q64[asset_id]`.
-3. Compute `mint_amount = (value_after_fee * 2^64) / R_q64`.
-4. Mint `mint_amount` of the staccana asset to `recipient`.
-5. Initialize the nonce-consumed PDA. Future replays with the same `(asset_id, nonce)` reject.
-
-### 5.5 Burn flow (staccana → mainnet)
-
-Instruction: `burn`
-
-Accounts:
-
-| # | Role | Description |
-|---|---|---|
-| 0 | `[writable]` | Bridge program state |
-| 1 | `[writable]` | Staccana mint for `asset_id` |
-| 2 | `[writable]` | User's ATA being burned from |
-| 3 | `[signer]`   | User authority |
-| 4 | `[]`         | Asset ratio PDA `["ratio", asset_id]` |
-| 5 | `[writable]` | Bridge nonce counter PDA `["nonce_out", asset_id]` |
-
-Instruction data:
-
-```
-struct BurnArgs {
-    asset_id: u32,
-    amount: u64,                  // mint tokens to burn
-    mainnet_dest: [u8; 32],
-}
-```
-
-Effects:
-
-1. Read `R_q64[asset_id]`.
-2. `release_amount = (amount * R_q64) >> 64`. Apply `burn_fee_bps`.
-3. Burn `amount` from user ATA.
-4. Increment and read `nonce_out` for `asset_id`.
-5. Emit event `Burn { asset_id, user, release_amount, mainnet_dest, nonce_out, chain_id=mainnet }`.
-
-The mainnet-side vault releases funds upon receiving a federation-signed attestation of this event.
+There is no bridge. The federated multi-asset bridge previously specified here (per-asset `AssetConfig`, ratio `R`, `update_ratio` / `mint` / `burn` wire formats, federation M-of-N attestation) was removed before audit. A 5-of-9 federation that can drain a vault was the worst audit liability, and the assets it carried (stSOL/ssUSDC/wSOL) plus its yield engine are not needed. Value moves in/out via **CEX listings**; native-SOL price comes from a **permissionless Switchboard feed pointed at the CEX**; secret-ray pools are **SOL-quoted**. See `docs/BRIDGE.md` (removal note) and `docs/AUDIT_SCOPE.md`. Prior wire formats are recoverable from git history if ever needed.
 
 ## 6. FBA matcher (consensus rule)
 
@@ -394,10 +253,8 @@ The treasury PDA at `find_program_address(["treasury"], TREASURY_PROGRAM_ID)` is
 ### 7.1 Authorized operations
 
 - Transfer to AMM pool seed addresses
-- Transfer to bridge insurance fund
 - **Validator subsidy distributions** (per epoch — see §7.2)
 - Grant disbursements
-- Stake / unstake into the validator-subsidy productive position (see §7.2)
 
 All transfers require multisig threshold signatures. Transfers above a per-epoch ceiling require an additional cooldown.
 
@@ -406,24 +263,22 @@ All transfers require multisig threshold signatures. Transfers above a per-epoch
 Inflation is disabled (classic v1 inheritance) and the FBA structurally eliminates MEV revenue. Validator income comes from two sources:
 
 1. **Base fees** — 50% of `FIXED_TRANSACTION_FEE_LAMPORTS` per non-vote tx (small at launch TPS).
-2. **Treasury subsidy** — load-bearing source, funded by yield on a productive position.
+2. **Treasury subsidy** — load-bearing source, funded by **direct principal drawdown**. There is no productive position, no mainnet staking, no yield: inflation is off and stays off, and running a staking position would require the removed bridge.
 
 Mechanism:
 
-- A configurable portion (`TREASURY_PRODUCTIVE_BPS`, default 8000 = 80%) of the genesis treasury is staked into a productive position. v1: pSYRUP on mainnet via the bridge, with the treasury PDA as the bridge depositor. Long-term: staccana-native staking once the validator set is non-trivial.
-- Each epoch, accrued yield (NOT principal) is distributed pro-rata across active validators weighted by:
+- A fixed per-epoch amount is drawn from treasury principal and distributed pro-rata across active validators weighted by:
   ```
   weight(v) = uptime(v) × delegated_stake(v) × votes_cast(v)
   ```
-- A reserved direct-allocation pool (`TREASURY_BOOTSTRAP_BPS`, default 200 = 2% of genesis treasury) funds validators directly for `BOOTSTRAP_EPOCHS` (default 60 epochs ≈ 30 days) before the staking position is yielding.
+- A ~485M SOL treasury at `SUBSIDY_DRAWDOWN_PER_EPOCH` sustains the subsidy for 10+ years before fee revenue must carry validation.
+- At launch the governance multisig hand-distributes the drawdown to the (small) validator set. A thin on-chain drawdown distributor is a fast-follow: it only schedules transfers out of the treasury PDA — it never stakes or earns.
 
 ### 7.3 Constants
 
 ```
-TREASURY_PRODUCTIVE_BPS    = 8000   (80% of genesis treasury staked productively)
-TREASURY_BOOTSTRAP_BPS     = 200    (2% reserved for first-30-days direct subsidy)
-BOOTSTRAP_EPOCHS           = 60
-SUBSIDY_DISTRIBUTION_EVERY = 1 epoch
+SUBSIDY_DRAWDOWN_PER_EPOCH  = governance-set (target ≈ 96k SOL/day equivalent)
+SUBSIDY_DISTRIBUTION_EVERY  = 1 epoch
 ```
 
 ### 7.4 Multisig choice
@@ -434,8 +289,6 @@ Native (custom-built for staccana) vs Squads-on-staccana. **Lean: Squads** — d
 
 - **I1. Genesis SOL conservation.** `sum(claimable.lamports) + treasury.total_lamports == sum(snapshot.lamports)`. No SOL is created or destroyed by the partition.
 - **I2. Claim idempotency.** Each claimable pubkey can be materialized at most once. Replay detection via the per-pubkey claimed-marker PDA.
-- **I3. Bridge mint conservation.** For each asset: `mint_supply * R_q64 / 2^64 ≤ vault_value` at all times. Sub-1 R drift permitted (oracle staleness, underlying loss); super-1 not.
-- **I4. R monotonicity (soft).** Under honest federation operation, `R[asset]` is non-decreasing slot-over-slot. The only legitimate decrease vectors are hard slashing in the underlying or honest-misreport correction.
 - **I5. Replay-invariant matcher.** §6.4 holds for all inputs.
 - **I6. No bundle execution.** No block under valid consensus contains tx ordering inconsistent with the canonical clearing for that slot's input intent set.
 - **I7. Gas-exempt claim integrity.** A claim ix can only be gas-exempt when the transaction structure exactly matches §4.4. Any deviation must pay normal fees.
@@ -443,13 +296,11 @@ Native (custom-built for staccana) vs Squads-on-staccana. **Lean: Squads** — d
 ## 9. Open items
 
 - Treasury multisig: native vs Squads. Lean Squads.
-- Federation pubkey-set rotation: governance-gated `rotate_federation` ix, threshold and cooldown TBD.
-- `R` update emergency-pause: TBD (likely a separate "guardian" key set with a short timelock).
 - Validator slashing magnitude for invalid block production: TBD.
 - Quote-mint registry maintenance: governance vs dynamic by 30d volume rank.
 - Tower BFT modifications needed to enforce canonical ordering at the leader: TBD.
 - Whether `claim` recipient must have zero lamports OR not yet exist (lean: must not yet exist — strongest one-shot guarantee).
-- Bridge fee distribution: 100% to vault (compounds R) vs split with treasury vs split with insurance fund. Lean: 100% to vault for v1.
+- On-chain drawdown distributor: ship as a thin transfer-scheduler, or keep hand-distributing from the multisig. Lean: hand-distribute at launch, distributor as fast-follow.
 
 ## 10. Versioning
 

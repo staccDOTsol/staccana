@@ -188,9 +188,7 @@ pub fn assemble_genesis_config(inputs: &BakeInputs) -> Result<(GenesisConfig, Ba
     // ---- Programs (BPF builtins via upgradeable loader) ----
     let slots = canonical_slots(
         inputs.lazy_claim_so.as_deref(),
-        inputs.bridge_so.as_deref(),
         inputs.secret_pump_so.as_deref(),
-        inputs.validator_subsidy_so.as_deref(),
         inputs.megadrop_so.as_deref(),
         inputs.spl_token_so.as_deref(),
         inputs.spl_token_2022_so.as_deref(),
@@ -198,16 +196,13 @@ pub fn assemble_genesis_config(inputs: &BakeInputs) -> Result<(GenesisConfig, Ba
         inputs.spl_memo_so.as_deref(),
         inputs.address_lookup_table_so.as_deref(),
     );
-    // Staccana programs (lazy-claim, bridge, secret-pump, validator-subsidy,
-    // megadrop) get the operator's upgrade authority baked in if one was
-    // supplied — that lets us patch them post-boot without rebaking. SPL
-    // programs always stay immutable (we never want to upgrade Token-2022
-    // out from under live user txs).
+    // Staccana programs (lazy-claim, secret-pump, megadrop) get the operator's
+    // upgrade authority baked in if one was supplied — that lets us patch them
+    // post-boot without rebaking. SPL programs always stay immutable (we never
+    // want to upgrade Token-2022 out from under live user txs).
     let staccana_program_ids: std::collections::HashSet<Pubkey> = [
         crate::pdas::LAZY_CLAIM_PROGRAM_ID,
-        crate::pdas::BRIDGE_PROGRAM_ID,
         crate::pdas::SECRET_PUMP_PROGRAM_ID,
-        crate::pdas::VALIDATOR_SUBSIDY_PROGRAM_ID,
         crate::pdas::MEGADROP_PROGRAM_ID,
     ]
     .into_iter()
@@ -267,17 +262,15 @@ pub fn assemble_genesis_config(inputs: &BakeInputs) -> Result<(GenesisConfig, Ba
     config.add_account(zk_id, native_program_account(&zk_name));
     let native_programs_installed = vec![(zk_name, zk_id)];
 
-    // ---- Bridge asset Token-22 mints (wsol/stsol/ssusdc) ----
+    // ---- Canonical wrapped-SOL mint ----
     //
-    // Pre-baked at deterministic addresses with mint_authority = bridge per-asset
-    // PDA. Once the chain boots, `bridge::mint` and `bridge::burn` invoke_signed
-    // against those PDAs to move supply — no separate post-boot mint creation
-    // step is needed. wSOL specifically bakes at canonical
+    // Just wSOL now (stSOL/ssUSDC were bridge assets, removed). Baked at canonical
     // `So11111111111111111111111111111111111111112` so Token-22's `sync_native`
-    // wrap/unwrap semantics work.
+    // wrap/unwrap semantics work for SOL-quoted secret-ray pools. No mint
+    // authority, no freeze authority, no bridge coupling.
     for slot in crate::mints::canonical_mint_slots().iter() {
         let (pk, acct) = crate::mints::build_mint_account(slot)
-            .with_context(|| format!("building bridge mint {} ({})", slot.name, slot.pubkey))?;
+            .with_context(|| format!("building mint {} ({})", slot.name, slot.pubkey))?;
         config.add_account(pk, acct);
     }
 
@@ -393,9 +386,7 @@ mod tests {
             cluster_type: ClusterType::MainnetBeta,
             additional_validators: Vec::new(),
             lazy_claim_so: None,
-            bridge_so: None,
             secret_pump_so: None,
-            validator_subsidy_so: None,
             megadrop_so: None,
             spl_token_so: None,
             spl_token_2022_so: None,
@@ -560,38 +551,32 @@ mod tests {
     }
 
     #[test]
-    fn assemble_with_all_five_so_paths_installs_all_five() {
+    fn assemble_with_all_staccana_so_paths_installs_all_three() {
         let dir = tempfile::tempdir().expect("tempdir");
         let mut inputs = synthetic_inputs();
         for (slot, byte) in [
             ("staccana_lazy_claim.so", 0x01),
-            ("staccana_bridge.so", 0x02),
             ("staccana_secret_pump.so", 0x03),
-            ("staccana_validator_subsidy.so", 0x04),
             ("staccana_megadrop.so", 0x05),
         ] {
             let p = dir.path().join(slot);
             std::fs::write(&p, vec![byte; 64]).expect("write");
             match slot {
                 "staccana_lazy_claim.so" => inputs.lazy_claim_so = Some(p),
-                "staccana_bridge.so" => inputs.bridge_so = Some(p),
                 "staccana_secret_pump.so" => inputs.secret_pump_so = Some(p),
-                "staccana_validator_subsidy.so" => inputs.validator_subsidy_so = Some(p),
                 "staccana_megadrop.so" => inputs.megadrop_so = Some(p),
                 _ => unreachable!(),
             }
         }
 
         let (_, summary) = assemble_genesis_config(&inputs).expect("assemble");
-        assert_eq!(summary.programs_installed.len(), 5);
+        assert_eq!(summary.programs_installed.len(), 3);
         let names: Vec<&str> = summary.programs_installed.iter().map(|p| p.name).collect();
         assert_eq!(
             names,
             vec![
                 "staccana_lazy_claim",
-                "staccana_bridge",
                 "staccana_secret_pump",
-                "staccana_validator_subsidy",
                 "staccana_megadrop",
             ]
         );
@@ -679,12 +664,12 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let lc = dir.path().join("lc.so");
         std::fs::write(&lc, vec![1u8; 16]).unwrap();
-        let br = dir.path().join("br.so");
-        std::fs::write(&br, vec![2u8; 16]).unwrap();
+        let sp = dir.path().join("sp.so");
+        std::fs::write(&sp, vec![2u8; 16]).unwrap();
 
         let mut inputs = synthetic_inputs();
         inputs.lazy_claim_so = Some(lc);
-        inputs.bridge_so = Some(br);
+        inputs.secret_pump_so = Some(sp);
         let (_, summary) = assemble_genesis_config(&inputs).expect("assemble");
         assert_eq!(summary.total_accounts, 21 + 4);
         assert_eq!(summary.programs_installed.len(), 2);

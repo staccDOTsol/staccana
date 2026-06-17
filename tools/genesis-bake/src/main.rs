@@ -16,9 +16,7 @@
 //!   --faucet-keypair  /etc/staccana/keys/faucet.json \
 //!   --cluster-type   development \
 //!   --lazy-claim-so          target/deploy/staccana_lazy_claim.so \
-//!   --bridge-so              programs/bridge/target/deploy/staccana_bridge.so \
 //!   --secret-pump-so         programs/secret-pump/target/deploy/staccana_secret_pump.so \
-//!   --validator-subsidy-so   programs/validator-subsidy/target/deploy/staccana_validator_subsidy.so \
 //!   --megadrop-so            programs/megadrop/target/deploy/staccana_megadrop.so \
 //!   --output-ledger-dir /var/lib/staccana/ledger
 //! ```
@@ -112,18 +110,10 @@ struct Cli {
     #[arg(long)]
     lazy_claim_so: Option<PathBuf>,
 
-    /// `.so` path for the bridge program. Optional — see `--lazy-claim-so` for the
+    /// `.so` path for the secret-pump program. Optional — see `--lazy-claim-so` for the
     /// "skipped" semantics.
     #[arg(long)]
-    bridge_so: Option<PathBuf>,
-
-    /// `.so` path for the secret-pump program. Optional.
-    #[arg(long)]
     secret_pump_so: Option<PathBuf>,
-
-    /// `.so` path for the validator-subsidy program. Optional.
-    #[arg(long)]
-    validator_subsidy_so: Option<PathBuf>,
 
     /// `.so` path for the megadrop program. Optional.
     #[arg(long)]
@@ -270,9 +260,7 @@ fn main() -> Result<()> {
         cluster_type,
         additional_validators,
         cli.lazy_claim_so,
-        cli.bridge_so,
         cli.secret_pump_so,
-        cli.validator_subsidy_so,
         cli.megadrop_so,
         cli.spl_token_so,
         cli.spl_token_2022_so,

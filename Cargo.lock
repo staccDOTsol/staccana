@@ -9784,74 +9784,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "staccana-bridge"
-version = "0.1.0"
-dependencies = [
- "anchor-lang",
- "anchor-spl",
- "solana-instructions-sysvar 3.0.0",
- "solana-sdk-ids 3.1.0",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "staccana-bridge-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "borsh 1.6.1",
- "clap",
- "serde",
- "serde_json",
- "solana-client",
- "solana-program",
- "solana-sdk",
-]
-
-[[package]]
-name = "staccana-bridge-init"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "borsh 1.6.1",
- "clap",
- "hex",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "solana-client",
- "solana-program",
- "solana-sdk",
-]
-
-[[package]]
-name = "staccana-bridge-vault"
-version = "0.1.0"
-dependencies = [
- "anchor-lang",
- "anchor-spl",
- "solana-instructions-sysvar 3.0.0",
- "solana-sdk-ids 3.1.0",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "staccana-bridge-vault-init"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "borsh 1.6.1",
- "clap",
- "hex",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "solana-client",
- "solana-program",
- "solana-sdk",
-]
-
-[[package]]
 name = "staccana-claim-cli"
 version = "0.1.0"
 dependencies = [
@@ -9887,28 +9819,6 @@ dependencies = [
  "staccana-snapshot-fork",
  "tempfile",
  "tokio",
-]
-
-[[package]]
-name = "staccana-federation-attestor"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64 0.22.1",
- "bincode",
- "borsh 1.6.1",
- "bs58",
- "clap",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "solana-client",
- "solana-program",
- "solana-sdk",
- "solana-transaction-status-client-types",
- "thiserror 2.0.18",
- "tokio",
- "toml 0.8.23",
 ]
 
 [[package]]
@@ -9981,9 +9891,7 @@ dependencies = [
  "serde_json",
  "solana-program",
  "solana-sdk",
- "staccana-bridge-cli",
  "staccana-claim-cli",
- "staccana-federation-attestor",
  "staccana-genesis",
  "staccana-genesis-emit",
  "staccana-lazy-claim",
@@ -10096,45 +10004,6 @@ dependencies = [
  "tar",
  "tempfile",
  "zstd",
-]
-
-[[package]]
-name = "staccana-subsidy-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "borsh 1.6.1",
- "clap",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "solana-client",
- "solana-program",
- "solana-sdk",
-]
-
-[[package]]
-name = "staccana-validator-subsidy"
-version = "0.1.0"
-dependencies = [
- "anchor-lang",
- "anchor-spl",
- "solana-instructions-sysvar 3.0.0",
- "solana-sdk-ids 3.1.0",
- "staccana-bridge",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "staccana-wssol-init"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "hex",
- "solana-client",
- "solana-sdk",
- "spl-token-2022",
 ]
 
 [[package]]
@@ -11884,13 +11753,3 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
-
-[[patch.unused]]
-name = "proc-macro2"
-version = "1.0.79"
-source = "git+https://github.com/dtolnay/proc-macro2?rev=1.0.79#4ba4ab1ec52d9e8286826a898430683ba002a002"
-
-[[patch.unused]]
-name = "quote"
-version = "1.0.35"
-source = "git+https://github.com/dtolnay/quote?rev=1.0.35#b01743f24cb5b19f96a3eac6bce0e7aee10f6199"

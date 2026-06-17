@@ -18,9 +18,9 @@ path = "src/lib.rs"
 anyhow = { workspace = true }
 clap = { version = "4", features = ["derive"] }
 sha2 = "0.10"
-solana-client = "2"
-solana-sdk = "2"
-solana-system-interface = "1"
+solana-client = "3"
+solana-sdk = "4"
+solana-system-interface = "3"
 staccana-agent-messaging = { path = "../../agent-messaging" }
 
 [dev-dependencies]

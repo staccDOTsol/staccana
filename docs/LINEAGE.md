@@ -35,7 +35,7 @@ Same target, sharper weapons. The four key changes from classic v1:
 |---|---|---|
 | Anti-MEV mechanism | Fixed fee deters extraction | **Per-mint FBA at consensus eliminates extraction** |
 | Privacy | Vanilla Solana | **CTE feature gates ON at genesis** |
-| Bridge | None | **Non-1:1 accruing peg, multi-asset, federated v1** |
+| Bridge | None | **None — CEX listings are the on/off-ramp** |
 | Genesis | Fresh | **Snapshot-based with strict partition rule + treasury** |
 
 ### What carries forward from classic
@@ -52,7 +52,6 @@ Same target, sharper weapons. The four key changes from classic v1:
 - The matcher (`/matcher`) — per-mint AMM-anchored uniform clearing
 - The genesis builder (`/genesis`) — strict partition rule, treasury accumulation, Merkle root construction, classic defaults composition
 - The lazy-claim program — Merkle-proof + ed25519-sig verification + gas-exempt rule
-- The multi-asset bridge — non-1:1 accruing peg per asset (stSOL backed by pSYRUP, ssUSDC backed by mainnet USDC, etc.)
 - secret-pump, secret-ray (forked Raydium AMM/CLMM/CPMM), and the secret-* line of confidential primitives
 - ZK ElGamal Proof program activated at slot 0; four CTE feature gates flipped at genesis
 - Treasury-funded project ops in lieu of inflation

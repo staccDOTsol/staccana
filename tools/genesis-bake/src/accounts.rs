@@ -35,10 +35,10 @@
 //!    requires at least one vote+stake pair at slot 0 to bootstrap the leader
 //!    schedule.
 //!
-//! 2. **Treasury PDA**: derived at `["treasury"] / VALIDATOR_SUBSIDY_PROGRAM_ID`.
-//!    Pre-credited with `composed.treasury_pda_lamports`. Owner is the validator-
-//!    subsidy program so its `invoke_signed` calls (which sign with the treasury seed)
-//!    can debit the PDA.
+//! 2. **Treasury PDA**: derived at `["treasury"] / LAZY_CLAIM_PROGRAM_ID`.
+//!    Pre-credited with `composed.treasury_pda_lamports`. Owner is the lazy-claim
+//!    program so it can debit the PDA for gas-exempt claim fees. Governance/drawdown
+//!    over the treasury is authorized by the Squads multisig at the control layer.
 //!
 //! 3. **Lazy-claim Config singleton**: derived at `["config"] / LAZY_CLAIM_PROGRAM_ID`.
 //!    Owner is the lazy-claim program. Data is the manually-packed
@@ -56,7 +56,7 @@ use solana_vote_program::vote_state as vote_state_helpers;
 
 use staccana_lazy_claim::state::LazyClaimConfig as OnChainLazyClaimConfig;
 
-use crate::pdas::{lazy_claim_config_pda, treasury_pda, LAZY_CLAIM_PROGRAM_ID, VALIDATOR_SUBSIDY_PROGRAM_ID};
+use crate::pdas::{lazy_claim_config_pda, treasury_pda, LAZY_CLAIM_PROGRAM_ID};
 use crate::BOOTSTRAP_LAMPORTS;
 
 /// Build the bootstrap validator's identity account.
@@ -154,20 +154,19 @@ pub fn faucet_account(faucet: Pubkey) -> (Pubkey, AccountSharedData) {
 /// `init_subsidy` ix post-boot.
 pub fn treasury_account(lamports: u64) -> (Pubkey, AccountSharedData) {
     let (pda, _bump) = treasury_pda();
-    // Owner = LAZY_CLAIM_PROGRAM_ID. lazy-claim debits the treasury via direct
-    // `try_borrow_mut_lamports` mutation in `processor.rs::credit_lamports`.
-    // The Solana runtime forbids direct lamport mutation by any program OTHER
-    // than the account's owner — if the treasury were owned by validator-
-    // subsidy (the program named in the seeds), every claim tx would fail at
-    // the very last step with "instruction spent from the balance of an
-    // account it does not own", AFTER the merkle proof has already verified
-    // and the program has logged "materialized <recipient>".
+    // Owner = LAZY_CLAIM_PROGRAM_ID, and the PDA is derived under the same
+    // program. lazy-claim debits the treasury via direct `try_borrow_mut_lamports`
+    // mutation in `processor.rs::credit_lamports`. The Solana runtime forbids
+    // direct lamport mutation by any program OTHER than the account's owner — so
+    // owner and seed-deriving program must both be lazy-claim, or every claim tx
+    // would fail at the last step with "instruction spent from the balance of an
+    // account it does not own".
     //
-    // Trade-off: the validator-subsidy program can no longer `invoke_signed`
-    // out of this PDA via the seed authority. Subsidy disbursement will need
-    // a CPI through lazy-claim (or a future shared treasury-router program)
-    // to release SOL out of the treasury. Tracking item: subsidy disbursement
-    // path is broken until that wiring lands; lazy-claim claim is unblocked.
+    // Validator subsidy is now treasury principal drawdown (no yield, no bridge).
+    // At launch the Squads governance multisig hand-distributes the drawdown; a
+    // future drawdown-distributor releases SOL via a CPI through lazy-claim (or a
+    // shared treasury-router). The treasury account itself stays lazy-claim-owned
+    // because the gas-exempt claim path requires it.
     (
         pda,
         AccountSharedData::new(lamports, 0, &LAZY_CLAIM_PROGRAM_ID),
@@ -356,12 +355,13 @@ mod tests {
     }
 
     #[test]
-    fn treasury_account_owner_is_validator_subsidy_program() {
+    fn treasury_account_owner_is_lazy_claim_program() {
         let (pda, acct) = treasury_account(485_192_075_139_020_370);
         let (expected_pda, _) = treasury_pda();
         assert_eq!(pda, expected_pda);
         assert_eq!(acct.lamports(), 485_192_075_139_020_370);
-        assert_eq!(*acct.owner(), VALIDATOR_SUBSIDY_PROGRAM_ID);
+        // Owner must be lazy-claim so it can debit gas-exempt claim fees.
+        assert_eq!(*acct.owner(), LAZY_CLAIM_PROGRAM_ID);
         // Treasury PDA stores no data, only lamports.
         assert_eq!(acct.data().len(), 0);
     }

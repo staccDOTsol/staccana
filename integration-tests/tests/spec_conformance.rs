@@ -8,11 +8,10 @@
 //!
 //! * §4.1 — `ClaimArgs` instruction body layout
 //! * §4.2 — claim message signed by the mainnet keypair
-//! * §5.3 — federation ratio attestation
 //! * §6.1 — `SwapIntent` canonical encoding
 //!
-//! The existing per-crate unit tests (in `claim-cli`, `lazy-claim`, `federation-attestor`,
-//! and `matcher`) cover layout pinning within their own crate. These tests cross the
+//! The existing per-crate unit tests (in `claim-cli`, `lazy-claim`, and `matcher`) cover
+//! layout pinning within their own crate. These tests cross the
 //! boundary: the bytes a producer crate emits must equal the bytes the consumer crate
 //! expects, and both must equal the literal bytes the spec describes.
 
@@ -20,9 +19,6 @@ use solana_program::pubkey::Pubkey;
 use staccana_claim_cli::tx::{
     build_claim_message as cli_build_claim_message, ClaimArgs as CliClaimArgs,
     LAZY_CLAIM_PROGRAM_ID, STACCANA_CLAIM_DOMAIN,
-};
-use staccana_federation_attestor::sign::{
-    build_attestation_message, AttestationInputs, ATTESTATION_DOMAIN, ATTESTATION_LEN,
 };
 use staccana_lazy_claim::{build_claim_message as program_build_claim_message, ClaimArgs};
 use staccana_matcher::SwapIntent;
@@ -161,63 +157,6 @@ fn claim_args_round_trip_via_lazy_claim_decoder() {
     assert_eq!(decoded.lamports, cli_args.lamports);
     assert_eq!(decoded.proof, cli_args.proof);
     assert_eq!(decoded.proof_flags, cli_args.proof_flags);
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// §5.3 — Ratio attestation
-// ──────────────────────────────────────────────────────────────────────────────
-
-#[test]
-fn ratio_attestation_matches_spec_5_3_byte_for_byte() {
-    // Fixture from the task spec: asset_id 1, vault_value 1_000_000, mint_supply
-    // 1_000_000, slot 100, nonce 5.
-    let inputs = AttestationInputs {
-        asset_id: 1,
-        vault_value: 1_000_000,
-        mint_supply: 1_000_000,
-        slot: 100,
-        nonce: 5,
-    };
-
-    let mut expected = Vec::with_capacity(ATTESTATION_LEN);
-    expected.extend_from_slice(b"STACCANA_RATIO_V1");
-    expected.extend_from_slice(&1u32.to_le_bytes());
-    expected.extend_from_slice(&1_000_000u64.to_le_bytes());
-    expected.extend_from_slice(&1_000_000u64.to_le_bytes());
-    expected.extend_from_slice(&100u64.to_le_bytes());
-    expected.extend_from_slice(&5u64.to_le_bytes());
-
-    let actual = build_attestation_message(inputs);
-    assert_eq!(&actual[..], expected.as_slice());
-    assert_eq!(actual.len(), 53);
-}
-
-#[test]
-fn ratio_attestation_domain_constant_matches_spec_literal() {
-    assert_eq!(ATTESTATION_DOMAIN, b"STACCANA_RATIO_V1");
-    assert_eq!(ATTESTATION_DOMAIN.len(), 17);
-    assert_eq!(ATTESTATION_LEN, 53);
-}
-
-#[test]
-fn ratio_attestation_field_offsets_pinned() {
-    // Independent fixture pinning offsets within the 53-byte message. Catches a
-    // field-reorder bug that the basic byte-for-byte test would also catch but with a
-    // less actionable diff.
-    let inputs = AttestationInputs {
-        asset_id: 0xDEAD_BEEFu32,
-        vault_value: 0x0102_0304_0506_0708u64,
-        mint_supply: 0x1112_1314_1516_1718u64,
-        slot: 0x2122_2324_2526_2728u64,
-        nonce: 0x3132_3334_3536_3738u64,
-    };
-    let msg = build_attestation_message(inputs);
-    assert_eq!(&msg[..17], b"STACCANA_RATIO_V1");
-    assert_eq!(&msg[17..21], &0xDEAD_BEEFu32.to_le_bytes());
-    assert_eq!(&msg[21..29], &0x0102_0304_0506_0708u64.to_le_bytes());
-    assert_eq!(&msg[29..37], &0x1112_1314_1516_1718u64.to_le_bytes());
-    assert_eq!(&msg[37..45], &0x2122_2324_2526_2728u64.to_le_bytes());
-    assert_eq!(&msg[45..53], &0x3132_3334_3536_3738u64.to_le_bytes());
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

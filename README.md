@@ -1,6 +1,6 @@
 # Staccana
 
-A Solana fork — secrecy on at genesis, atomic-MEV structurally impossible, treasury-funded ops, federated multi-asset bridge with a non-1:1 accruing peg.
+A Solana fork — secrecy on at genesis, atomic-MEV structurally impossible, treasury-funded ops (no inflation, no yield: straight principal drawdown), CEX listings as the on/off-ramp (no bridge).
 
 Continuation of [solana-classic v1](docs/LINEAGE.md). Same repo, same docker image, sharper architecture.
 
@@ -14,14 +14,15 @@ Staccana is a sovereign Solana chain. Genesis is built from a snapshot of mainne
 2. **Per-mint frequent batch auction at the validator layer.** Within a slot, swap intents are grouped by their longtail (non-quote) mint, matched against each other in size order, and cleared at a single AMM-anchored price. Sandwich and Jito-bundle MEV are structurally impossible.
 3. **No bundle protocol.** The validator binary doesn't compile in or honor Jito-style bundle messages.
 4. **Strict genesis partition rule.** Only system-program-owned, zero-data accounts (raw SOL on plain wallets) are claimable via lazy-claim. Everything else — every PDA, every token account, every stake account, every program-owned anything — is zero'd at genesis and the lamports credited to the staccana treasury. **One rule, no allowlists, no per-protocol judgment calls.**
-5. **Treasury funds the project, not inflation.** Inflation is disabled (inherited from classic v1). The genesis treasury — sized in the hundreds of millions of SOL given mainnet's stake distribution — funds ops, secret-pump bonding-curve seed liquidity, secret-ray initial pools, validator subsidies, and an insurance fund for the bridge.
+5. **Treasury funds the project, not inflation.** Inflation is disabled (inherited from classic v1). The genesis treasury — sized in the hundreds of millions of SOL given mainnet's stake distribution — funds ops, secret-pump bonding-curve seed liquidity, secret-ray initial pools, and the validator subsidy. The subsidy is **straight principal drawdown** — no yield engine, no mainnet staking position (a ~485M treasury funds validators for years before fee revenue has to carry them).
 
 ## What this is not
 
 - A privacy-by-default chain. Secrecy is opt-in per Token-22 extension semantics; the chain is transparent.
 - An L2 / rollup. Staccana is its own L1 with its own consensus, validators, and genesis.
 - A 1:1 mainnet replica. Only raw-SOL EOAs survive; protocols don't carry over.
-- An inflationary chain. Validator rewards = fees only.
+- An inflationary chain. Validator rewards = fees + treasury principal drawdown, never new issuance.
+- A bridged chain. There is no cross-chain bridge; value moves in/out via CEX listings.
 
 ## Repo layout
 
@@ -29,14 +30,15 @@ Staccana is a sovereign Solana chain. Genesis is built from a snapshot of mainne
 .
 ├── matcher/                 # FBA library — the core consensus rule
 ├── genesis/                 # Snapshot ingest, partition, treasury, Merkle root, classic defaults
-├── programs/                # Solana programs (lazy-claim, bridge, secret-*)        [planned]
+├── programs/                # Solana programs (lazy-claim, secret-pump, megadrop, agent-faucet)
 ├── tools/                   # CLIs and operator tooling
 ├── infra/                   # Ansible playbooks + bootstrap scripts + systemd units + Cloudflare LB
 ├── frontend/                # Next.js 14 + Vercel app (claim/bridge/pump UIs); deploys to app.mp.fun
 ├── agave/                   # Forked validator (git submodule of classic v2 branch)  [planned]
 └── docs/
     ├── ARCHITECTURE.md      # Design overview
-    ├── BRIDGE.md            # Multi-asset bridge with non-1:1 accruing peg
+    ├── AUDIT_SCOPE.md       # Delta-from-upstream index for the CertiK audit
+    ├── BRIDGE.md            # REMOVED — why there is no bridge (CEX is the ramp)
     ├── E2E_DEPLOY.md        # Local validator → multi-validator devnet → mainnet-sigma deploy pipeline
     ├── INFRA.md             # Cherryservers + Hetzner + Vercel infra plan (~$1.7k/mo)
     ├── LINEAGE.md           # Classic v1 → staccana v2 narrative
@@ -114,18 +116,7 @@ Build from the `staccana-ct-fixes` branch (the validated source); set `STACCANA_
 
 ### Joining the validator subsidy
 
-Once your node is in gossip and catching up, register its identity pubkey with the on-chain `validator-subsidy` program so it receives epoch payouts:
-
-```bash
-# from the operator (governance key) end:
-staccana-subsidy-cli \
-  --keypair /path/to/upgrade-authority.json \
-  --rpc https://rpc.mp.fun \
-  register-validator \
-  --validator <your-identity-pubkey>
-```
-
-Distributions are pull-free — they land in the identity address whenever `distribute_yield` / `bootstrap_distribute` runs for the epoch (SPEC §7.2). Status visible at <https://app.mp.fun/validators>.
+The subsidy is **treasury principal drawdown**, not yield — there is no productive position, no mainnet staking, no inflation. At launch the governance multisig hand-distributes the per-epoch drawdown directly to active validator identities (the set is small). A thin on-chain drawdown distributor is a fast-follow; it does **not** stake or earn — it only schedules transfers out of the treasury PDA. To be considered for the subsidy set, share your identity pubkey with the operators once your node is in gossip and catching up. Status visible at <https://app.mp.fun/validators>.
 
 ### Troubleshooting
 
@@ -139,8 +130,9 @@ Distributions are pull-free — they land in the identity address whenever `dist
 ## Status
 
 Pre-alpha scaffold with several live subsystems. The matcher/genesis pipeline,
-lazy-claim, bridge/megadrop scaffolding, agent messaging codec, and agent-only
-`MSG` faucet all compile in the workspace.
+lazy-claim, secret-pump bonding curve, megadrop scaffolding, agent messaging codec,
+and agent-only `MSG` faucet all compile in the workspace. (The federated bridge and
+its yield-based validator-subsidy were removed — see `docs/AUDIT_SCOPE.md`.)
 
 ```bash
 cargo test -p staccana-matcher

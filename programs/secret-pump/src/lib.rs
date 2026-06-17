@@ -49,25 +49,52 @@ declare_id!("SPump11111111111111111111111111111111111111");
 
 /// The staccana genesis treasury PDA. All secret-pump curve fees are routed here.
 ///
-/// This is `find_program_address(&[b"treasury"], staccana_validator_subsidy::ID)`
-/// = `D3FcFs85BAzroHzwWp1CEgnjCku4bPKMFAScrtfAdo83`, the same PDA the
-/// `validator-subsidy` program owns + drains for `bootstrap_distribute` /
-/// `distribute_yield`. Per README and `docs/SPEC.md` §2.1: there's ONE
-/// genesis treasury (485M SOL pre-credited), funding ops + bonding-curve
-/// seed liquidity + validator subsidies. Secret-pump fees are an
-/// accretion source for it.
+/// `find_program_address(&[b"treasury"], LAZY_CLAIM_PROGRAM_ID)` =
+/// `P75Pswx4w4FKW6orSw2GQVLqrBchNTQCVEagUpUwUZq` (bump 254). The treasury is derived
+/// under — and owned by — lazy-claim at genesis (the gas-exempt claim path direct-debits
+/// it), and handed to the Squads governance multisig post-launch. The removed
+/// validator-subsidy program no longer consumes it (no bridge, no yield — see
+/// `docs/AUDIT_SCOPE.md`). Per README and `docs/SPEC.md`: ONE genesis treasury (485M SOL
+/// pre-credited); secret-pump fees are an accretion source for it.
 ///
-/// (Const name kept as `_PLACEHOLDER` for the moment so call-sites don't
-/// move; once that's not needed we can rename. The actual address is now
-/// the real PDA, not the ASCII string `"staccana_treasury_placeholder___"`
-/// it used to be — the rename of the binding stays a follow-up.)
+/// Both program IDs are placeholders today; when real keypairs are generated this must be
+/// recomputed against the real lazy-claim program ID. The
+/// `treasury_pubkey_matches_lazy_claim_derivation` test below guards against silent drift.
+///
+/// (Const name kept as `_PLACEHOLDER` so call-sites don't move; rename is a follow-up.)
 pub const TREASURY_PUBKEY_PLACEHOLDER: Pubkey =
     Pubkey::new_from_array([
-        0xb2, 0xdf, 0xec, 0x01, 0xc6, 0xe1, 0x71, 0xbc,
-        0x18, 0x53, 0x48, 0x6a, 0xe0, 0xc0, 0x10, 0x6a,
-        0x11, 0xe6, 0x02, 0x2c, 0xc0, 0x89, 0x4d, 0xdb,
-        0xdb, 0x39, 0x93, 0xf2, 0x3c, 0xf4, 0xb9, 0x40,
+        0x05, 0xa9, 0xa5, 0xcf, 0x0e, 0xc4, 0x9b, 0xa0,
+        0x24, 0x6b, 0x11, 0x71, 0x66, 0x01, 0x59, 0x69,
+        0x8a, 0x85, 0xe0, 0xf4, 0x24, 0x57, 0xac, 0xa0,
+        0xbf, 0x72, 0x78, 0xc6, 0xb2, 0xe3, 0xd4, 0xfc,
     ]);
+
+#[cfg(test)]
+mod treasury_addr_tests {
+    use super::*;
+
+    /// lazy-claim's program ID (placeholder). MUST stay in sync with
+    /// `staccana_lazy_claim::id()` and `genesis-bake`'s `LAZY_CLAIM_PROGRAM_ID`
+    /// (ASCII `"LAZY_CLAIM_PROGRAM_PLACEHOLDER11"`).
+    const LAZY_CLAIM_PROGRAM_ID: Pubkey = Pubkey::new_from_array([
+        b'L', b'A', b'Z', b'Y', b'_', b'C', b'L', b'A', b'I', b'M', b'_', b'P', b'R', b'O', b'G',
+        b'R', b'A', b'M', b'_', b'P', b'L', b'A', b'C', b'E', b'H', b'O', b'L', b'D', b'E', b'R',
+        b'1', b'1',
+    ]);
+
+    /// The fee-destination constant must equal the genesis treasury PDA derived under
+    /// lazy-claim. If the lazy-claim program ID changes (real keypair finalization),
+    /// `TREASURY_PUBKEY_PLACEHOLDER` must be recomputed and this test will fail until it is.
+    #[test]
+    fn treasury_pubkey_matches_lazy_claim_derivation() {
+        let (derived, _bump) = Pubkey::find_program_address(&[b"treasury"], &LAZY_CLAIM_PROGRAM_ID);
+        assert_eq!(
+            derived, TREASURY_PUBKEY_PLACEHOLDER,
+            "secret-pump fee treasury must equal find_program_address([treasury], lazy-claim)"
+        );
+    }
+}
 
 #[program]
 pub mod staccana_secret_pump {

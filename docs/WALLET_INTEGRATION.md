@@ -10,7 +10,7 @@ How users connect existing Solana wallets to staccana. None of the major wallets
 4. Save → switch active network to Staccana
 5. The wallet now shows your staccana balances + lets you sign staccana transactions
 
-**Caveat**: Phantom does not yet have native UI for the Token-22 Confidential Transfer Extension. CTE-active mints (stSOL, ssUSDC) appear as standard SPL tokens; the encrypted balance is invisible to the wallet UI. To interact with confidential balances, use the staccana web frontend (`https://app.mp.fun/`) which has CTE-aware encryption / decryption flows.
+**Caveat**: Phantom does not yet have native UI for the Token-22 Confidential Transfer Extension. CTE-active mints (secret-pump tokens, or any Token-22 mint with the extension) appear as standard SPL tokens; the encrypted balance is invisible to the wallet UI. To interact with confidential balances, use the staccana web frontend (`https://app.mp.fun/`) which has CTE-aware encryption / decryption flows.
 
 ## Solflare
 
@@ -71,30 +71,13 @@ cargo run --release -p staccana-claim-cli -- \
 
 The claim instruction is fee-exempt (SPEC §4.4), so you don't need any staccana SOL to claim — the lazy-claim program covers the fee from the treasury.
 
-## Bridging in (deposit SOL on mainnet, mint stSOL on staccana)
+## Getting more staccana SOL (no bridge — use a CEX)
 
-Users who want more staccana exposure than their claim grants — or who didn't hold SOL on mainnet at the snapshot slot — can bridge in.
-
-**Web flow**:
-1. Visit `https://app.mp.fun/bridge`
-2. Connect mainnet wallet → choose deposit asset (SOL → pSYRUP → stSOL, or USDC → ssUSDC)
-3. Approve mainnet vault deposit
-4. Wait for federation attestation (~1 minute, 5-of-9 sigs)
-5. Receive stSOL/ssUSDC on staccana
-
-**CLI flow**:
-```bash
-cargo run --release -p staccana-bridge-cli -- deposit \
-  --asset stSOL \
-  --amount 1.5 \
-  --mainnet-keypair ~/.config/solana/id.json \
-  --staccana-dest <YOUR_STACCANA_PUBKEY> \
-  --mainnet-rpc https://api.mainnet-beta.solana.com
-```
+Users who want more staccana exposure than their claim grants — or who didn't hold SOL on mainnet at the snapshot slot — acquire native SOL on a **CEX that lists staccana**. There is no bridge: the exchange custodies, runs a staccana node, and processes deposits/withdrawals like any other listed chain. Withdraw native SOL from the CEX to your staccana address; that's the on-ramp.
 
 ## Confidential transfers
 
-Once you hold a CTE-active token (stSOL, ssUSDC, or any secret-pump token), you can opt your token account into the Confidential Transfer Extension and start sending private balances.
+Once you hold a CTE-active token (any secret-pump token, or any Token-22 mint with the extension), you can opt your token account into the Confidential Transfer Extension and start sending private balances.
 
 The staccana frontend handles this end-to-end: it generates your ElGamal decryption key (separate from your signing key), configures the token account, and runs the CTE-aware send / receive flow.
 

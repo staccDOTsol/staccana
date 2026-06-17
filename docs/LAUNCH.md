@@ -84,7 +84,7 @@ Supermajority is 3-of-4 = 75%. The cluster tolerates one validator down.
 ## endpoints
 
 - **Public RPC**: `https://rpc.mp.fun` (cloudflared tunnel from val-1's localhost:8899; full RPC API + transaction history + extended tx metadata + block subscription enabled)
-- **App**: `https://app.mp.fun` — claim, bridge, pump UI
+- **App**: `https://app.mp.fun` — claim, pump UI
 - **Explorer**: `https://explorer.mp.fun` — staccana-branded fork of solana-labs/explorer with XMR-style ConfidentialIndicator components for Token-22 CTE accounts
 - **Docker image** (laptop validator): `jrsdunn/solana-classic-validator:v2.0.0-devnet-20260502` and `:latest` (slug inherited from solana-classic v1's 332 organic Docker pulls; v2 keeps the brand and the audience)
 
@@ -98,15 +98,16 @@ Supermajority is 3-of-4 = 75%. The cluster tolerates one validator down.
 
 ## programs deployed
 
-5 staccana programs + 4 SPL-stack programs, all live on staccana devnet
-2026-05-03. IDs land in `/etc/staccana/program-ids.json` on val-1.
+3 staccana programs + 4 SPL-stack programs, all live on staccana devnet
+2026-05-03. IDs land in `/etc/staccana/program-ids.json` on val-1. (The devnet-era
+`bridge`, `bridge-vault`, and `validator-subsidy` deploys were removed — no bridge, no
+yield engine; see `docs/AUDIT_SCOPE.md`. Validators are paid by treasury drawdown,
+hand-distributed from the multisig.)
 
 ### staccana programs
 
 - **lazy-claim**         `BK95n7mFdF7Wk5T8oiSFLtmULprQe6bRcpgLMQGC3oeK` — the 85.6M claimable airdrop (root-embedded in genesis)
-- **bridge**             `LA7h3hjvD62MeTtdeE4h2vq3EGxbU1oqzHtewp4xb9b` — staccana-side bridge (wSOL R-locked + AMM-oracle-quoted native SOL, see `docs/BRIDGE.md`)
-- **secret-pump**        `3Pbv3bHBh7SvcMDZqBFjJ3T9jLdrpiednaTRdViitMWF` — Token-22 CTE bonding-curve launcher ("pump.fun, but every balance encrypted by default")
-- **validator-subsidy**  `Subsidy111111111111111111111111111111111111` — treasury → validator runtime payouts
+- **secret-pump**        `3Pbv3bHBh7SvcMDZqBFjJ3T9jLdrpiednaTRdViitMWF` — Token-22 CTE bonding-curve launcher ("pump.fun, but every balance encrypted by default"); SOL-quoted
 - **megadrop**           `Aicff1zk6b5ifYzFoyhenUD5ehhFYb8GiDbRCrWt9t34` — 30M SOL second drop (root `0x4cd7098e…` initialized post-boot at PDA `GSPLWBykuVJNjFyqeLKMDkpoi4rZSD4fkXzVVwL9xGpV`)
 
 ### SPL stack (deployed at fresh addresses; canonical IDs require Anza's keypairs)
@@ -116,21 +117,11 @@ Supermajority is 3-of-4 = 75%. The cluster tolerates one validator down.
 - **Associated Token**    `2osq4Xf5YxbpyR4nWqJkqpsyRYwPrVD6CjZztCHCvYd6`
 - **SPL Memo v3**         `2o6EJBtsFaf4yBpgZ992zjaQPjukUFHZT7SmE2J8e9pG`
 
-### Solana side
-
-- **bridge-vault**        `F2AypZ8FDWnR5bdyLHzo4idof9YrBpdBmbgLwLBjLfVU` (devnet) — escrows wSOL/stSOL/ssUSDC, releases on M-of-N federation attestation
-
 ## federation
 
-5-of-9 multisig federation runs the cross-chain attestor daemon
-(`tools/federation-attestor/`). 9 instances, templated systemd unit at
-`/etc/systemd/system/staccana-federation-attestor@.service`, signer keys at
-`/etc/staccana/federation/signer-{1..9}.json`. Each instance polls both
-chains for `DepositEvent` (Solana → staccana) and `BurnEvent` (staccana →
-Solana), signs the corresponding `STACCANA_MINT_V1` (68B) or
-`MAINNET_RELEASE_V1` (70B) attestation message, persists its cursor at
-`/var/lib/staccana/attestor/attestor-state-<signer>.json`. M=5 signatures
-unlock a mint or release.
+None. There is no bridge and no federation — value moves in/out via CEX listings. The
+former 5-of-9 cross-chain attestor (`tools/federation-attestor/`) and the mainnet
+`bridge-vault` were removed. See `docs/BRIDGE.md` (removal note).
 
 ## what's NOT in this drop (deferred)
 

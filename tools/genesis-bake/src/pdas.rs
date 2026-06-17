@@ -7,9 +7,11 @@
 //!
 //! ## Treasury PDA seed
 //!
-//! The treasury PDA lives at `find_program_address(&[b"treasury"], &TREASURY_PROGRAM_ID)`
-//! per `docs/SPEC.md` §3.5 and §7. `TREASURY_PROGRAM_ID` is the validator-subsidy
-//! program (the on-chain consumer that signs treasury debits via PDA seeds).
+//! The treasury PDA lives at `find_program_address(&[b"treasury"], &LAZY_CLAIM_PROGRAM_ID)`
+//! per `docs/SPEC.md` §3.5 and §7. It is derived under — and owned by — the lazy-claim
+//! program, which debits it for gas-exempt claim fees (see `accounts::treasury_account`).
+//! Governance/drawdown over the treasury is authorized by the Squads multisig at the
+//! control layer; the old federated bridge and validator-subsidy program were removed.
 //!
 //! ## Lazy-claim Config PDA seed
 //!
@@ -41,20 +43,10 @@ pub const LAZY_CLAIM_PROGRAM_ID: Pubkey = Pubkey::new_from_array([
     b'A', b'M', b'_', b'P', b'L', b'A', b'C', b'E', b'H', b'O', b'L', b'D', b'E', b'R', b'1', b'1',
 ]);
 
-/// Bridge program ID. Decoded from the `declare_id!("Bridge1111...11")` placeholder in
-/// `programs/bridge/src/lib.rs`.
-pub const BRIDGE_PROGRAM_ID: Pubkey = pubkey_from_b58_const(b"Bridge1111111111111111111111111111111111111");
-
 /// Secret-pump program ID. Decoded from the `declare_id!("SPump111...11")` placeholder
 /// in `programs/secret-pump/src/lib.rs`.
 pub const SECRET_PUMP_PROGRAM_ID: Pubkey =
     pubkey_from_b58_const(b"SPump11111111111111111111111111111111111111");
-
-/// Validator-subsidy program ID — also the treasury-PDA-deriving program. Decoded from
-/// the `declare_id!("Subsidy11...11")` placeholder in
-/// `programs/validator-subsidy/src/lib.rs`.
-pub const VALIDATOR_SUBSIDY_PROGRAM_ID: Pubkey =
-    pubkey_from_b58_const(b"Subsidy111111111111111111111111111111111111");
 
 /// Megadrop program ID. Decoded from the `declare_id!("Megadrop11...11")` placeholder in
 /// `programs/megadrop/src/lib.rs`.
@@ -88,14 +80,13 @@ pub const SPL_ASSOCIATED_TOKEN_PROGRAM_ID: Pubkey =
 pub const SPL_MEMO_PROGRAM_ID: Pubkey =
     pubkey_from_b58_const(b"MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
 
-// --- Bridge asset mints ---
+// --- Canonical wrapped SOL mint ---
 //
-// These three Token-22 mints are baked into genesis at fixed addresses by
-// `crate::mints::canonical_mint_slots`. Each one's `mint_authority` is the
-// bridge program's per-asset PDA at `["asset", asset_id_le_bytes]` against
-// `BRIDGE_PROGRAM_ID` — that's the seed the on-chain `mint`/`burn` ixs
-// `invoke_signed` with. After the rebake, the bridge can mint_to / burn
-// against these mints from slot 0 with no separate post-boot mint creation.
+// The only mint baked into genesis (`crate::mints::canonical_mint_slots`).
+// stSOL/ssUSDC were bridge assets and are gone with the bridge. wSOL is baked
+// as the canonical wrapped-SOL mint so AMM `sync_native` wrap/unwrap works for
+// SOL-quoted secret-ray pools — it has NO mint authority (supply changes only
+// via native wrapping), no freeze authority, and no bridge coupling.
 
 /// wSOL mint = canonical mainnet wSOL address. Bake at this exact pubkey so
 /// Token-22's `sync_native` semantics work — that ix is hardcoded against
@@ -103,36 +94,12 @@ pub const SPL_MEMO_PROGRAM_ID: Pubkey =
 pub const WSOL_MINT_ID: Pubkey =
     pubkey_from_b58_const(b"So11111111111111111111111111111111111111112");
 
-/// stSOL mint. Vanity-padded placeholder; no pre-existing on-chain meaning.
-/// Stable across rebakes.
-pub const STSOL_MINT_ID: Pubkey =
-    pubkey_from_b58_const(b"stsoL1111111111111111111111111111111111111");
-
-/// ssUSDC mint. Vanity-padded placeholder; no pre-existing on-chain meaning.
-/// Stable across rebakes.
-pub const SSUSDC_MINT_ID: Pubkey =
-    pubkey_from_b58_const(b"ssUsDc11111111111111111111111111111111111");
-
-/// Bridge per-asset PDA seed. Mirrors `programs/bridge/src/instructions/mint.rs`'s
-/// `["asset", asset_id_le_bytes]` mint-authority derivation.
-pub const BRIDGE_ASSET_SEED: &[u8] = b"asset";
-
-/// Compute the bridge mint-authority PDA for a given `asset_id`. This is what
-/// the on-chain bridge's `mint` and `burn` ixs `invoke_signed` against; baking
-/// the mints with `mint_authority = bridge_asset_pda(asset_id)` is what wires
-/// the bridge program to be the sole entity that can move supply on these
-/// three asset mints.
-pub fn bridge_asset_pda(asset_id: u32) -> (Pubkey, u8) {
-    let id_le = asset_id.to_le_bytes();
-    Pubkey::find_program_address(&[BRIDGE_ASSET_SEED, &id_le], &BRIDGE_PROGRAM_ID)
-}
-
 /// Seed used for the treasury PDA derivation (single-element seed).
 ///
-/// The validator-subsidy program's CPIs that debit the treasury sign with this seed; if
-/// it ever changes there, change it here too — otherwise the program-side
-/// `invoke_signed` won't authorize the debit and validator-subsidy distributions will
-/// fail with a seed-mismatch error.
+/// The treasury PDA is derived under and owned by the lazy-claim program (which debits it
+/// for gas-exempt claim fees). If the seed ever changes on the program side, change it
+/// here too — otherwise the lazy-claim processor and this baker would disagree on the
+/// treasury address.
 pub const TREASURY_SEED: &[u8] = b"treasury";
 
 /// Seed used for the lazy-claim Config singleton PDA derivation. Single-element seed
@@ -143,9 +110,10 @@ pub const TREASURY_SEED: &[u8] = b"treasury";
 pub const LAZY_CLAIM_CONFIG_SEED: &[u8] = b"config";
 
 /// Derive the treasury PDA address (and bump). Derives from
-/// `["treasury"] / VALIDATOR_SUBSIDY_PROGRAM_ID` per SPEC §3.5 / §7.
+/// `["treasury"] / LAZY_CLAIM_PROGRAM_ID` per SPEC §3.5 / §7 — the lazy-claim program
+/// owns the treasury and debits it for gas-exempt claim fees.
 pub fn treasury_pda() -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[TREASURY_SEED], &VALIDATOR_SUBSIDY_PROGRAM_ID)
+    Pubkey::find_program_address(&[TREASURY_SEED], &LAZY_CLAIM_PROGRAM_ID)
 }
 
 /// Derive the lazy-claim Config singleton PDA address (and bump). Derives from
@@ -243,23 +211,11 @@ mod tests {
     }
 
     #[test]
-    fn pubkey_from_b58_round_trips_known_value() {
-        // The bridge ID is `Bridge1111...111`; round-trip it through bs58::encode and
-        // confirm we get back the same string the on-chain `declare_id!` consumed.
-        let s = bs58::encode(BRIDGE_PROGRAM_ID.to_bytes()).into_string();
-        assert_eq!(s, "Bridge1111111111111111111111111111111111111");
-    }
-
-    #[test]
     fn pubkey_from_b58_secret_pump_round_trips() {
+        // Round-trip a known placeholder ID through bs58::encode and confirm we get back
+        // the same string the on-chain `declare_id!` consumed.
         let s = bs58::encode(SECRET_PUMP_PROGRAM_ID.to_bytes()).into_string();
         assert_eq!(s, "SPump11111111111111111111111111111111111111");
-    }
-
-    #[test]
-    fn pubkey_from_b58_validator_subsidy_round_trips() {
-        let s = bs58::encode(VALIDATOR_SUBSIDY_PROGRAM_ID.to_bytes()).into_string();
-        assert_eq!(s, "Subsidy111111111111111111111111111111111111");
     }
 
     #[test]
@@ -299,9 +255,7 @@ mod tests {
     fn all_program_ids_are_distinct() {
         let ids = [
             LAZY_CLAIM_PROGRAM_ID,
-            BRIDGE_PROGRAM_ID,
             SECRET_PUMP_PROGRAM_ID,
-            VALIDATOR_SUBSIDY_PROGRAM_ID,
             MEGADROP_PROGRAM_ID,
         ];
         for i in 0..ids.len() {

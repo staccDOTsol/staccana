@@ -6,7 +6,6 @@ Deployment topology for `mainnet-sigma` (target 2026-05-16) and onward.
 
 - **Validators**: Cherryservers Bare Metal Cloud (AMD EPYC tier) — primary; Hetzner AX-line as redundancy / EU diversity.
 - **RPC / entrypoints**: Cherryservers (geographic spread); offload to Helius / Triton later if traffic scales.
-- **Federation-attestor daemons**: small VPS class on Cherryservers, co-located with non-validator infra.
 - **Frontend / explorer / docs**: Vercel (matches the existing Vercel skill patterns in this repo).
 
 ## Validator nodes
@@ -45,15 +44,9 @@ Each RPC node:
 
 Approximate cost: ~$150/mo each → **$750/mo** for 5 RPCs.
 
-## Federation-attestor daemons
-
-One per signer for the 5-of-9 federation. Daemon load is light (websocket subs + signing + occasional ix submission); 8GB RAM / 2 vCPU is plenty.
-
-Approximate cost: ~$30/mo each (small VPS class) → **$150/mo** for 5 attestors.
-
 ## Frontend / explorer / docs
 
-- Vercel for: claim UI, bridge UI, secret-pump UI, docs site, status page.
+- Vercel for: claim UI, secret-pump UI, docs site, status page.
 - Self-hosted (on one of the RPC boxes initially) or migrated to Vercel: forked solana-explorer pointed at staccana RPC.
 
 Vercel cost: included in existing plan; no marginal expense.
@@ -63,13 +56,12 @@ Vercel cost: included in existing plan; no marginal expense.
 ```
 Validators:    3 × $250  = $750/mo
 RPCs:          5 × $150  = $750/mo
-Attestors:     5 ×  $30  = $150/mo
 Vercel/extras: ~          $50/mo
                           ─────────
-                          $1,700/mo
+                          $1,550/mo
 ```
 
-Comfortably under $20k/year for full v1 infra.
+Comfortably under $20k/year for full v1 infra. (No federation/attestor infra — there is no bridge.)
 
 ## Geographic coverage
 
@@ -82,7 +74,7 @@ RPCs: 5 regions covering >90% of likely user latency. APAC is doubled (Singapore
 - **Snapshot redundancy**: each validator periodically uploads snapshots to a shared S3-compatible bucket (Backblaze B2 or Cloudflare R2). Cheap insurance against ledger corruption.
 - **Monitoring**: Grafana + Prometheus on a separate small VPS; alerts to Telegram / Discord; see also Vercel Observability for the frontends.
 - **Bastion / SSH**: dedicated tiny bastion box; SSH from elsewhere disabled. Operations from approved IPs only.
-- **Secrets**: validator keypairs in 1Password / Vault; federation signing keys held by individual signers, never on shared infra.
+- **Secrets**: validator keypairs in 1Password / Vault; treasury governance multisig keys held by signers, never on shared infra.
 - **Backups**: daily Cargo.lock + chain config + genesis output (small, ~MB-scale) to a separate provider. Ledger isn't backed up — too big and regenerable from peer snapshots.
 
 ## Scaling triggers
@@ -92,13 +84,11 @@ When to add infrastructure beyond the v0 footprint:
 | Signal | Action |
 |---|---|
 | RPC sustained > 80% CPU on any node | Add a 6th RPC in the busiest region |
-| Bridge TVL > $5M | Move from team-controlled federation to a real 5-of-9 with independent signers |
 | Validator stake distribution skews (one operator > 33% effective) | Recruit additional validators; consider stake-cap in genesis defaults |
 | Public RPC abuse (single IP > X req/min sustained) | Tighter nginx rules; consider cloudflare in front |
 
 ## v1.1 infra additions
 
 - **secret-ray** (forked Raydium AMM/CLMM/CPMM + router) — separate program, no infra change required beyond the 3 validators.
-- **Validator subsidy distribution program** — runs on-chain, no off-chain infra.
-- **Treasury productive position** (pSYRUP staking via the bridge) — bridge already covers this; no new infra.
+- **On-chain drawdown distributor** — runs on-chain, no off-chain infra (until then the multisig hand-distributes the treasury drawdown).
 - **Multi-validator decentralization** — recruit external validator operators, fund initial stake from treasury.

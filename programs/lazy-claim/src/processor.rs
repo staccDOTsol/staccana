@@ -37,10 +37,11 @@ use crate::state::{
     ProofBufferHeader, CLAIMED_MARKER_SEED, PROOF_BUFFER_SEED,
 };
 
-/// Hardcoded admin authority — staccana's BPF upgrade-authority key. Same key
-/// as `staccana_megadrop::ADMIN_AUTHORITY` and `staccana_validator_subsidy::
-/// ADMIN_AUTHORITY`. Gates the privileged `DrainTreasury` ix used by the
-/// validator-subsidy treasury-custody migration.
+/// Hardcoded admin authority — staccana's BPF upgrade-authority key, shared with
+/// `staccana_megadrop::ADMIN_AUTHORITY`. Gates the privileged `DrainTreasury` and
+/// `AssignTreasuryOwner` ixs used to hand treasury custody to the Squads governance
+/// multisig post-launch (the validator-subsidy program that previously consumed the
+/// treasury was removed — no bridge, no yield engine).
 pub const ADMIN_AUTHORITY: Pubkey =
     solana_program::pubkey!("HSwe2Y7i6CPuJGb27rBwUumt8HZ8sCpQvG4PBBiC5f4y");
 
@@ -104,11 +105,12 @@ pub fn process_instruction(
 /// treasury PDA is zero-data (carries lamports only — see
 /// `genesis-bake/src/accounts.rs::treasury_account`), so this is allowed.
 ///
-/// Why this exists: see `process_drain_treasury`'s docstring. Tl;dr: the
-/// genesis-bake set treasury.owner to `LAZY_CLAIM_PLACEHOLDER` so claims
-/// could direct-debit it. That blocks the validator-subsidy program from
-/// spending treasury via `distribute_yield`. This ix flips ownership to
-/// validator-subsidy, fixing the disbursement path.
+/// Why this exists: genesis-bake sets `treasury.owner = lazy-claim` so the
+/// gas-exempt claim path can direct-debit it during the claim window. Once
+/// claims wind down, the admin hands custody to the post-launch treasury
+/// custodian (the Squads governance multisig, or a future drawdown-distributor
+/// program) — either by draining to it (`DrainTreasury`) or, for a program
+/// custodian, reassigning ownership with this ix.
 ///
 /// Idempotence: if treasury is already non-lazy-claim-owned, the
 /// `treasury_ai.owner != program_id` check returns `IllegalOwner` and the
@@ -151,31 +153,24 @@ pub fn process_assign_treasury_owner(
     Ok(())
 }
 
-/// Privileged treasury-drain handler. One leg of the multi-ix tx that fixes
-/// the genesis-bake treasury-custody bug.
+/// Privileged treasury-drain handler — the `ADMIN_AUTHORITY`-gated path that
+/// moves lamports out of the genesis treasury.
 ///
-/// Background: `tools/genesis-bake/src/accounts.rs::treasury_account` set the
-/// treasury PDA's `owner` field to this program (lazy-claim) so claims could
-/// `try_borrow_mut_lamports` on it. That decision blocks the validator-
-/// subsidy program from spending treasury via `distribute_yield` /
-/// `bootstrap_distribute` (it can't debit accounts it doesn't own). The
-/// migration tx looks like:
+/// Background: `tools/genesis-bake/src/accounts.rs::treasury_account` sets the
+/// treasury PDA's `owner` to this program (lazy-claim) so the gas-exempt claim
+/// path can `try_borrow_mut_lamports` on it during the claim window. The runtime
+/// forbids debiting an account you don't own, so the treasury MUST stay
+/// lazy-claim-owned while claims are live.
 ///
-///   ix 0  lazy-claim::DrainTreasury(amount, recipient)
-///         debits treasury (we own it) → credits `recipient` (= authority)
-///         post-state: treasury.lamports = 0
-///   ix 1  validator-subsidy::migrate_treasury_owner
-///         calls system_program::assign(treasury, validator_subsidy)
-///         allowed because treasury.lamports = 0 in this slot
-///         post-state: treasury.owner = validator-subsidy
-///   ix 2  system_program::transfer(authority → treasury, amount)
-///         refunds the lamports back; authority is system-owned so this works
+/// Post-launch, this ix is how the validator-subsidy **drawdown** is funded:
+/// the admin drains treasury principal to the **Squads governance multisig
+/// vault** (`recipient`), which then hand-distributes to validators (no yield,
+/// no staking — see `docs/AUDIT_SCOPE.md`). Drain incrementally as drawdown is
+/// needed, or move the whole residual once the claim window closes.
 ///
-/// Atomicity ensures the chain never sees a state where treasury is drained
-/// but ownership hasn't flipped (or vice versa). Idempotence: if treasury
-/// is already validator-subsidy-owned (`owner == self_program_id` check
-/// fails), this returns `IllegalOwner` early, so re-running the migration
-/// after success is a clean no-op.
+/// Idempotence: the `treasury_ai.owner != program_id` check returns
+/// `IllegalOwner` if the treasury has already been reassigned away from
+/// lazy-claim, so this can't double-spend after a custody handoff.
 ///
 /// Accounts:
 ///   0. authority   [signer]     must equal `ADMIN_AUTHORITY`

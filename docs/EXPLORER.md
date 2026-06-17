@@ -44,7 +44,7 @@ Make staccana the default; mainnet/devnet/testnet stay accessible via the cluste
 - Logo / favicon → mp.fun branding
 - Color theme → match the `app.mp.fun` frontend (consistent visual identity across surfaces)
 - Footer → "Powered by `solana-explorer` (Apache-2.0). Source: github.com/staccDOTsol/staccana-explorer"
-- Header link to `app.mp.fun` so users can move from "I just looked at my balance" → "let me bridge / claim / swap"
+- Header link to `app.mp.fun` so users can move from "I just looked at my balance" → "let me claim / swap"
 
 ## Staccana-specific features (post-launch additions)
 
@@ -56,19 +56,10 @@ The vanilla explorer covers tx / account / block views. Staccana wants more:
    - If claimed, the claim transaction signature
    Easy add: a new tab on the account view that reads the lazy-claim program account + the per-pubkey marker PDA.
 
-2. **Bridge state inspector** — given an asset (stSOL, ssUSDC):
-   - Current `R_q64` (decoded from `RatioState` PDA per SPEC §5.2)
-   - Last published slot + nonce
-   - Mint supply
-   - Federation signer set
-   New page: `/bridge/<asset_id>`.
-
-3. **Federation signer panel** — list the M-of-N signers, their pubkeys, last attestation slot per signer (degraded ones flagged).
-
-4. **secret-pump bonding curve viewer** — given a pump token, show the curve state, live spot price, time to graduation, recent buys/sells.
+2. **secret-pump bonding curve viewer** — given a pump token, show the curve state, live spot price, time to graduation, recent buys/sells.
    New page: `/pump/<mint>`.
 
-5. **FBA matcher visualization** (post v1.1) — per-slot, show:
+3. **FBA matcher visualization** (post v1.1) — per-slot, show:
    - Number of swap intents
    - Clearing prices per (base, quote) pair
    - Matched volume vs residual volume

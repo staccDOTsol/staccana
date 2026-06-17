@@ -17,17 +17,14 @@ staccana-lazy-claim = { path = "../programs/lazy-claim" }
 staccana-claim-cli = { path = "../tools/claim-cli" }
 staccana-snapshot-fork = { path = "../tools/snapshot-fork" }
 staccana-genesis-emit = { path = "../tools/genesis-emit" }
-staccana-bridge-cli = { path = "../tools/bridge-cli" }
-staccana-federation-attestor = { path = "../tools/federation-attestor" }
 solana-program = { workspace = true }
 solana-sdk = "2"
 serde = { workspace = true }
 anyhow = { workspace = true }
 serde_json = "1"
 proptest = "1"
-# NOTE: staccana-bridge and staccana-secret-pump are NOT direct deps here. Anchor 0.30's
-# transitive spl-pod brings in a different solana-program version that conflicts with the
-# workspace's solana-program v2. Bridge/pump cross-crate tests live in their own crates'
-# tests/ directories (programs/bridge/tests/, programs/secret-pump/tests/) where the
-# dep tree is internally consistent. SPEC byte conformance — pinned independently in each
-# crate — is what enforces cross-crate consistency.
+# NOTE: staccana-secret-pump is NOT a direct dep here. Anchor 0.30's transitive spl-pod
+# brings in a different solana-program version that conflicts with the workspace's
+# solana-program v2. Pump cross-crate tests live in that crate's own tests/ directory
+# (programs/secret-pump/tests/) where the dep tree is internally consistent. SPEC byte
+# conformance — pinned independently in each crate — is what enforces cross-crate consistency.

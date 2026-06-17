@@ -16,7 +16,7 @@ clap = { version = "4", features = ["derive"] }
 solana-client = "2"
 solana-sdk = "2"
 solana-program = { workspace = true }
-sha2 = "0.10"
+sha2 = "0.11"
 borsh = { version = "1", features = ["derive"] }
 hex = "0.4"
 serde = { version = "1", features = ["derive"] }

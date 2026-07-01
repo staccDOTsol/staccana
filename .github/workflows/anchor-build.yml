@@ -27,7 +27,7 @@ jobs:
           - bridge
           - secret-pump
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Solana CLI
         run: |
